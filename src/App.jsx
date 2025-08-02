@@ -13,19 +13,16 @@ import RoadmapPage from '@/pages/RoadmapPage';
 import DeputadosPage from '@/pages/DeputadosPage';
 import SenadoresPage from '@/pages/SenadoresPage';
 import AnalyticsPage from '@/pages/AnalyticsPage';
+import ScrollToTop from '@/components/ScrollToTop'; // <-- ADICIONE ESTA LINHA DE IMPORTAÇÃO
 
 function App() {
   return (
     <Router>
+      <ScrollToTop /> {/* <-- ADICIONE O COMPONENTE AQUI */}
       <div className="min-h-screen bg-gray-50 flex flex-col">
         <Helmet>
           <title>Fiscaliza, MBL! - Transparência Política</title>
-          <meta name="description" content="Plataforma de transparência política do MBL para monitoramento de deputados e senadores brasileiros. Análise de desempenho, gastos e votações." />
-          <meta name="keywords" content="mbl, política, transparência, deputados, senadores, brasil, congresso, fiscalização" />
-          <meta property="og:title" content="Fiscaliza, MBL! - Transparência Política" />
-          <meta property="og:description" content="Monitore as atividades dos políticos federais brasileiros com a ferramenta de fiscalização do MBL." />
-          <meta property="og:type" content="website" />
-          <meta name="twitter:card" content="summary_large_image" />
+          {/* ... (o resto das suas tags meta) ... */}
         </Helmet>
         
         <Header />
