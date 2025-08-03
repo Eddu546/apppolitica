@@ -36,7 +36,11 @@ const DnaPoliticoPage = () => {
   const calculateResults = async (finalAnswers) => {
     setStep('loading');
     try {
-      const response = await fetch('http://localhost:8000/api/votacoes/dna-politico', {
+      // --- CORREÇÃO ANTI-CACHE ---
+      // Adicionamos um timestamp único para garantir que os dados sejam sempre novos.
+      const url = `http://localhost:8000/api/votacoes/dna-politico?timestamp=${new Date().getTime()}`;
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -132,9 +136,7 @@ const DnaPoliticoPage = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-gray-500">Afinidade</p>
-                    {/* --- CORREÇÃO FINAL AQUI --- */}
                     <p className={`text-2xl font-bold ${politician.affinity > 70 ? 'text-green-500' : politician.affinity < 30 ? 'text-red-500' : 'text-yellow-500'}`}>
-                      {/* Adicionámos "|| 0" para garantir que, se a afinidade for nula, mostra 0% */}
                       {politician.affinity || 0}%
                     </p>
                   </div>
