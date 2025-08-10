@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { Search, Filter, Building2, MapPin } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Search, Filter, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 
 const SenadoresPage = () => {
   const { toast } = useToast();
+  const navigate = useNavigate(); // Importamos o useNavigate
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedState, setSelectedState] = useState('');
   const [selectedParty, setSelectedParty] = useState('');
@@ -17,27 +19,22 @@ const SenadoresPage = () => {
     async function fetchSenadores() {
       try {
         const response = await fetch('http://localhost:8000/api/senadores');
-
-        // CORREÇÃO: Verificando se a resposta da rede foi bem-sucedida (status 2xx)
         if (!response.ok) {
-          // Se não foi, lança um erro para ser pego pelo bloco catch
           throw new Error(`Erro do servidor: ${response.status}`);
         }
-
         const data = await response.json();
         setSenadores(data);
       } catch (error) {
         console.error("Erro ao buscar dados dos senadores:", error);
         toast({
           title: "Erro de Conexão",
-          description: "Não foi possível buscar os dados dos senadores. Verifique se o backend está rodando corretamente.",
+          description: "Não foi possível buscar os dados dos senadores.",
           variant: "destructive",
         });
       } finally {
         setLoading(false);
       }
     }
-
     fetchSenadores();
   }, [toast]);
 
@@ -51,13 +48,6 @@ const SenadoresPage = () => {
     return matchesSearch && matchesState && matchesParty;
   });
 
-  const handleSenadorClick = (senador) => {
-    toast({
-      title: "🚧 Perfil detalhado em desenvolvimento",
-      description: `O perfil completo de ${senador.nome} ainda não está implementado.`,
-    });
-  };
-
   return (
     <>
       <Helmet>
@@ -67,7 +57,7 @@ const SenadoresPage = () => {
 
       <div className="min-h-screen bg-gray-50">
         <div className="bg-white shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="text-center">
               <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
                 Senadores da República
@@ -92,7 +82,6 @@ const SenadoresPage = () => {
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                 />
               </div>
-
               <select
                 value={selectedState}
                 onChange={(e) => setSelectedState(e.target.value)}
@@ -103,7 +92,6 @@ const SenadoresPage = () => {
                   <option key={estado} value={estado}>{estado}</option>
                 ))}
               </select>
-
               <select
                 value={selectedParty}
                 onChange={(e) => setSelectedParty(e.target.value)}
@@ -114,7 +102,6 @@ const SenadoresPage = () => {
                   <option key={partido} value={partido}>{partido}</option>
                 ))}
               </select>
-
               <Button
                 variant="outline"
                 onClick={() => {
@@ -141,7 +128,6 @@ const SenadoresPage = () => {
                   Mostrando {filteredSenadores.length} de {senadores.length} senadores
                 </p>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredSenadores.map((senador, index) => (
                   <motion.div
@@ -150,7 +136,8 @@ const SenadoresPage = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: index * 0.05 }}
                     className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer hover-lift"
-                    onClick={() => handleSenadorClick(senador)}
+                    // --- CORREÇÃO APLICADA AQUI ---
+                    onClick={() => navigate(`/politico/senador/${senador.id}`)}
                   >
                     <div className="p-6">
                       <div className="flex items-center space-x-4 mb-4">
@@ -170,7 +157,6 @@ const SenadoresPage = () => {
                   </motion.div>
                 ))}
               </div>
-
               {filteredSenadores.length === 0 && !loading && (
                 <div className="text-center py-12">
                   <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />

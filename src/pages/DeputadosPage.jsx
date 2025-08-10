@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Users, Search, Filter, Building2 } from 'lucide-react';
+import { Users, Search, Filter } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 
@@ -16,11 +16,9 @@ const DeputadosPage = () => {
   const [deputados, setDeputados] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Busca os dados dos deputados no nosso backend
   useEffect(() => {
     async function fetchDeputados() {
       try {
-        // Usamos a rota do nosso backend que já estava funcionando
         const response = await fetch('http://localhost:8000/api/deputados');
         if (!response.ok) {
           throw new Error('Erro na resposta da rede');
@@ -42,7 +40,6 @@ const DeputadosPage = () => {
     fetchDeputados();
   }, [toast]);
 
-  // Pega as listas de partidos e estados dos dados reais
   const partidos = [...new Set(deputados.map((d) => d.partido))].sort();
   const estados = [...new Set(deputados.map((d) => d.uf))].sort();
 
@@ -145,7 +142,8 @@ const DeputadosPage = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: index * 0.05 }}
                     className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer hover-lift"
-                    onClick={() => navigate(`/politico/${dep.id}`)}
+                    // --- CORREÇÃO APLICADA AQUI ---
+                    onClick={() => navigate(`/politico/deputado/${dep.id}`)}
                   >
                     <div className="p-6">
                       <div className="flex items-center space-x-4">

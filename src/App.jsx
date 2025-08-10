@@ -31,7 +31,7 @@ function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/search" element={<SearchResultsPage />} />
-            <Route path="/politico/:id" element={<PoliticianProfilePage />} />
+            <Route path="/politico/:tipo/:id" element={<PoliticianProfilePage />} />
             <Route path="/deputados" element={<DeputadosPage />} />
             <Route path="/senadores" element={<SenadoresPage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />

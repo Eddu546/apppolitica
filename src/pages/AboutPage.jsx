@@ -51,7 +51,8 @@ const AboutPage = () => {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
               >
-                <img  class="rounded-lg shadow-xl" alt="Membros do MBL em uma manifestação" src="https://images.unsplash.com/photo-1667293271727-a93ca2bab7d4" />
+                {/* --- CORREÇÃO APLICADA AQUI de 'class' para 'className' --- */}
+                <img  className="rounded-lg shadow-xl" alt="Membros do MBL em uma manifestação" src="https://images.unsplash.com/photo-1667293271727-a93ca2bab7d4" />
               </motion.div>
             </div>
           </div>

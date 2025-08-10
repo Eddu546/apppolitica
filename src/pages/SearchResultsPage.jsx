@@ -14,7 +14,6 @@ const SearchResultsPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Se não houver uma busca (query), não faz nada.
     if (!query) {
       setLoading(false);
       return;
@@ -23,7 +22,6 @@ const SearchResultsPage = () => {
     async function fetchResults() {
       setLoading(true);
       try {
-        // Chama a nossa nova API de busca no backend
         const response = await fetch(`http://localhost:8000/api/search?q=${encodeURIComponent(query)}`);
         if (!response.ok) {
           throw new Error('Erro na resposta da busca');
@@ -32,20 +30,20 @@ const SearchResultsPage = () => {
         setResults(data);
       } catch (error) {
         console.error("Erro ao buscar resultados:", error);
-        setResults([]); // Em caso de erro, garante que os resultados fiquem vazios
+        setResults([]);
       } finally {
         setLoading(false);
       }
     }
 
     fetchResults();
-  }, [query]); // Roda a busca toda vez que o termo 'q' na URL mudar
+  }, [query]);
 
-  // Função para navegar para a página correta do político
+  // --- CORREÇÃO APLICADA AQUI ---
+  // A função de clique agora usa o tipo do político para montar o URL correto.
   const handleResultClick = (politico) => {
-    // O perfil de senador ainda não foi criado, então por enquanto vai para o de deputado
-    // Futuramente, podemos adicionar uma lógica aqui
-    navigate(`/politico/${politico.id}`);
+    const tipo = politico.tipo.toLowerCase(); // 'deputado' ou 'senador'
+    navigate(`/politico/${tipo}/${politico.id}`);
   };
 
   return (
@@ -79,7 +77,7 @@ const SearchResultsPage = () => {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.1 }}
                   >
-                    <div 
+                    <div
                       className="bg-white p-4 rounded-lg shadow-md border border-gray-200 flex flex-col sm:flex-row items-center sm:space-x-6 space-y-4 sm:space-y-0 cursor-pointer hover:border-yellow-400 hover:bg-yellow-50 transition-all"
                       onClick={() => handleResultClick(politician)}
                     >
@@ -92,7 +90,8 @@ const SearchResultsPage = () => {
                         </div>
                       </div>
                       <Button className="w-full sm:w-auto bg-yellow-400 text-black hover:bg-yellow-500 font-bold" asChild>
-                        <Link to={`/politico/${politician.id}`}>Ver Perfil</Link>
+                        {/* --- CORREÇÃO APLICADA AQUI TAMBÉM --- */}
+                        <Link to={`/politico/${politician.tipo.toLowerCase()}/${politician.id}`}>Ver Perfil</Link>
                       </Button>
                     </div>
                   </motion.div>

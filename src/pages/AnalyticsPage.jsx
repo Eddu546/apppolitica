@@ -1,139 +1,184 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { BarChart3, TrendingUp, Users, DollarSign, FileText, Vote } from 'lucide-react';
+import { Search, Loader2, UserCheck, Percent, FileText, DollarSign } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { Link } from 'react-router-dom';
 
-// Função para formatar o número como moeda brasileira
-const formatCurrency = (value) => {
-  if (typeof value !== 'number') {
-    return 'R$ 0,00';
-  }
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+// Componente para um cartão de KPI individual
+const KpiCard = ({ icon: Icon, title, value, loading, color }) => {
+  const colorClasses = {
+    blue: 'bg-blue-100 text-blue-600',
+    green: 'bg-green-100 text-green-600',
+    orange: 'bg-orange-100 text-orange-600',
+    purple: 'bg-purple-100 text-purple-600',
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-white rounded-xl p-6 shadow-sm border"
+    >
+      <div className="flex items-center justify-between mb-4">
+        <div className={`p-2 rounded-lg ${colorClasses[color]}`}>
+          <Icon className="w-6 h-6" />
+        </div>
+      </div>
+      {loading ? (
+        <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
+      ) : (
+        <div className="text-3xl font-bold text-gray-900 mb-1">{value}</div>
+      )}
+      <div className="text-sm text-gray-600">{title}</div>
+    </motion.div>
+  );
 };
 
 const AnalyticsPage = () => {
   const { toast } = useToast();
-  const [selectedPeriod, setSelectedPeriod] = useState('2024');
-  const [loading, setLoading] = useState(true);
-  
-  // Estado para armazenar os dados de gastos vindos da API
-  const [gastosData, setGastosData] = useState({
-    totalGastos: 0,
-    deputadosAnalisados: 0,
-  });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedPolitician, setSelectedPolitician] = useState(null);
+  const [loadingKpis, setLoadingKpis] = useState(false);
+  const [kpiData, setKpiData] = useState(null);
 
-  // useEffect para buscar os dados de analytics do nosso backend
   useEffect(() => {
-    async function fetchAnalytics() {
-      setLoading(true);
-      try {
-        const response = await fetch('http://localhost:8000/api/analytics/gastos-deputados');
-        if (!response.ok) {
-          throw new Error('Falha ao buscar dados de analytics');
-        }
-        const data = await response.json();
-        setGastosData(data);
-      } catch (error) {
-        console.error('Erro ao buscar analytics:', error);
-        toast({
-          title: "Erro de Analytics",
-          description: "Não foi possível carregar os dados de gastos do backend.",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
+    if (searchQuery.length < 3) {
+      setSearchResults([]);
+      return;
     }
+    const fetchPoliticians = async () => {
+      try {
+        const response = await fetch(`http://localhost:8000/api/search?q=${encodeURIComponent(searchQuery)}`);
+        const data = await response.json();
+        setSearchResults(data);
+      } catch (error) {
+        console.error("Erro ao buscar políticos:", error);
+      }
+    };
+    const debounceTimer = setTimeout(() => fetchPoliticians(), 300);
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery]);
 
-    fetchAnalytics();
-  }, [toast]);
+  useEffect(() => {
+    if (!selectedPolitician) return;
+    const fetchKpis = async () => {
+      setLoadingKpis(true);
+      setKpiData(null);
+      try {
+        const { tipo, id } = selectedPolitician;
+        const tipoSlug = tipo.toLowerCase();
+        const [presencaRes, lealdadeRes, despesasRes, proposicoesRes] = await Promise.all([
+          fetch(`http://localhost:8000/api/kpis/${tipoSlug}/${id}/presenca`),
+          fetch(`http://localhost:8000/api/kpis/${tipoSlug}/${id}/lealdade`),
+          fetch(`http://localhost:8000/api/${tipoSlug}s/${id}/despesas`),
+          fetch(`http://localhost:8000/api/${tipoSlug}s/${id}/proposicoes`),
+        ]);
+        const presencaData = await presencaRes.json();
+        const lealdadeData = await lealdadeRes.json();
+        const despesasData = await despesasRes.json();
+        const proposicoesData = await proposicoesRes.json();
+        setKpiData({
+          presenca: presencaData.presenca,
+          lealdade: lealdadeData.lealdade,
+          despesas: despesasData,
+          proposicoes: proposicoesData.length,
+        });
+      } catch (error) {
+        toast({ title: "Erro ao calcular KPIs", description: "Não foi possível buscar todos os dados do político.", variant: "destructive" });
+      } finally {
+        setLoadingKpis(false);
+      }
+    };
+    fetchKpis();
+  }, [selectedPolitician, toast]);
 
-
-  const handleChartClick = (chartName) => {
-    toast({
-      title: "🚧 Gráfico interativo em desenvolvimento",
-      description: `${chartName} ainda não está implementado—mas não se preocupe! Você pode solicitar isso no seu próximo prompt! 🚀`,
-    });
+  const handleSelectPolitician = (politician) => {
+    setSelectedPolitician(politician);
+    setSearchQuery('');
+    setSearchResults([]);
   };
 
-  // Os outros stats continuam como exemplo por enquanto
-  const stats = [
-    { title: 'Proposições Apresentadas', value: '2.847', icon: FileText, color: 'blue' },
-    { title: 'Votações Realizadas', value: '156', icon: Vote, color: 'green' },
-    { 
-      title: `Gastos Públicos (Amostra de ${gastosData.deputadosAnalisados} deps)`, 
-      value: loading ? 'Calculando...' : formatCurrency(gastosData.totalGastos), // <-- USA O DADO REAL AQUI
-      icon: DollarSign, 
-      color: 'orange' 
-    },
-    { title: 'Presença Média', value: '87.3%', icon: Users, color: 'purple' }
-  ];
-
-  // Gráficos continuam como exemplo
-  const chartData = [
-    { title: 'Proposições por Partido', description: 'Distribuição de proposições por partido' },
-    { title: 'Presença por Estado', description: 'Taxa de presença média por estado' },
-    { title: 'Gastos Mensais', description: 'Evolução dos gastos ao longo do ano' },
-    { title: 'Temas Mais Votados', description: 'Principais temas das votações' }
-  ];
+  // --- NOVA FUNÇÃO PARA O 'ENTER' ---
+  const handleSearchSubmit = (event) => {
+    event.preventDefault(); // Impede que a página recarregue
+    if (searchResults.length > 0) {
+      handleSelectPolitician(searchResults[0]); // Seleciona o primeiro resultado
+    }
+  };
 
   return (
     <>
       <Helmet>
-        <title>Analytics - Fiscaliza, MBL!</title>
-        <meta name="description" content="Análises e insights sobre a atividade parlamentar brasileira." />
+        <title>Desempenho Individual - Fiscaliza, MBL!</title>
+        <meta name="description" content="Analise o desempenho de um deputado ou senador através de indicadores-chave." />
       </Helmet>
+      <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">Calculadora de Desempenho</h1>
+            <p className="text-lg text-gray-600">Pesquise por um deputado ou senador e veja os seus indicadores-chave.</p>
+          </div>
+          
+          <div className="relative">
+            {/* --- O <input> agora está dentro de um <form> --- */}
+            <form onSubmit={handleSearchSubmit}>
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Digite o nome de um político e pressione Enter..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full text-lg pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                />
+              </div>
+            </form>
+            {searchResults.length > 0 && (
+              <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {searchResults.map(p => (
+                  <li key={p.id} onClick={() => handleSelectPolitician(p)} className="flex items-center p-3 hover:bg-yellow-50 cursor-pointer">
+                    {/* --- CORREÇÃO DA IMAGEM AQUI --- */}
+                    <img src={p.foto} alt={p.nome} className="w-10 h-10 rounded-full mr-3 object-cover" />
+                    <div>
+                      <p className="font-bold">{p.nome}</p>
+                      <p className="text-sm text-gray-500">{p.partido}-{p.uf}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
-      <div className="min-h-screen bg-gray-50">
-        <div className="bg-white shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+          <div className="mt-12">
+            {!selectedPolitician && (
+              <div className="text-center text-gray-500 py-16">
+                <UserCheck className="w-16 h-16 mx-auto mb-4" />
+                <p>Selecione um político para ver os seus dados de desempenho.</p>
+              </div>
+            )}
+            {selectedPolitician && (
               <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-                  Analytics Parlamentares
-                </h1>
-                <p className="text-xl text-gray-600 max-w-3xl">
-                  Insights sobre a atividade parlamentar com base em dados públicos.
-                </p>
-              </div>
-              <div className="mt-4 md:mt-0">
-                <select value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)} className="px-4 py-2 border border-gray-300 rounded-lg">
-                  <option value="2024">2024</option>
-                  <option value="2023">2023</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {stats.map((stat, index) => {
-              const Icon = stat.icon;
-              const colorClasses = { blue: 'bg-blue-100 text-blue-600', green: 'bg-green-100 text-green-600', orange: 'bg-orange-100 text-orange-600', purple: 'bg-purple-100 text-purple-600' };
-              return (
-                <motion.div key={stat.title} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: index * 0.1 }} className="bg-white rounded-xl p-6 shadow-sm">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`p-2 rounded-lg ${colorClasses[stat.color]}`}><Icon className="w-6 h-6" /></div>
+                <div className="flex flex-col sm:flex-row items-center gap-6 mb-8 p-6 bg-white rounded-lg shadow-md border">
+                  {/* --- CORREÇÃO DA IMAGEM AQUI --- */}
+                  <img src={selectedPolitician.foto} alt={selectedPolitician.nome} className="w-24 h-24 rounded-full border-4 border-yellow-400 object-cover" />
+                  <div>
+                    <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900">{selectedPolitician.nome}</h2>
+                    <p className="text-lg text-gray-600">{selectedPolitician.partido} - {selectedPolitician.uf}</p>
+                    <Link to={`/politico/${selectedPolitician.tipo.toLowerCase()}/${selectedPolitician.id}`} className="text-sm text-yellow-600 hover:underline mt-1 block">
+                      Ver Perfil Completo
+                    </Link>
                   </div>
-                  <div className="text-2xl font-bold text-gray-900 mb-1">{stat.value}</div>
-                  <div className="text-sm text-gray-600">{stat.title}</div>
-                </motion.div>
-              );
-            })}
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {chartData.map((chart, index) => (
-              <motion.div key={chart.title} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 + index * 0.1 }} className="bg-white rounded-xl p-6 shadow-sm cursor-pointer" onClick={() => handleChartClick(chart.title)}>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">{chart.title}</h3>
-                <p className="text-gray-600 mb-6">{chart.description}</p>
-                <div className="h-64 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <BarChart3 className="w-12 h-12 text-gray-400" />
                 </div>
-              </motion.div>
-            ))}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <KpiCard icon={Percent} title="Lealdade Partidária" value={kpiData ? `${kpiData.lealdade.toFixed(2)}%` : '0.00%'} loading={loadingKpis} color="green" />
+                  <KpiCard icon={UserCheck} title="Presença em Votações" value={kpiData ? `${kpiData.presenca.toFixed(2)}%` : '0.00%'} loading={loadingKpis} color="purple" />
+                  <KpiCard icon={DollarSign} title="Gastos (Últimos 90 dias)" value={kpiData ? `${kpiData.despesas.length} registos` : '0'} loading={loadingKpis} color="orange" />
+                  <KpiCard icon={FileText} title="Proposições Apresentadas" value={kpiData ? kpiData.proposicoes.toString() : '0'} loading={loadingKpis} color="blue" />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

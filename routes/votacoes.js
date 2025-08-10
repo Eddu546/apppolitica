@@ -7,8 +7,13 @@ const votacoesChave = [
   { idPergunta: 'q1', idVotacao: '257161-462', votoSimRepresenta: 'sim' },
   { idPergunta: 'q2', idVotacao: '257161-465', votoSimRepresenta: 'sim' },
   { idPergunta: 'q3', idVotacao: '257161-467', votoSimRepresenta: 'nao' },
-  { idPergunta: 'q5', idVotacao: '257161-476', votoSimRepresenta: 'sim' },
   { idPergunta: 'q4', idVotacao: '257161-481', votoSimRepresenta: 'sim' },
+  { idPergunta: 'q5', idVotacao: '257161-476', votoSimRepresenta: 'sim' },
+  { idPergunta: 'q6', idVotacao: '2408145-17', votoSimRepresenta: 'nao' },
+  { idPergunta: 'q7', idVotacao: '2398530-73', votoSimRepresenta: 'nao' },
+  { idPergunta: 'q8', idVotacao: '2500330-43', votoSimRepresenta: 'sim' },
+  { idPergunta: 'q9', idVotacao: '2427139-60', votoSimRepresenta: 'sim' },
+  { idPergunta: 'q10', idVotacao: '257161-454', votoSimRepresenta: 'sim' },
 ];
 
 router.post('/dna-politico', async (req, res) => {
@@ -21,7 +26,7 @@ router.post('/dna-politico', async (req, res) => {
     const pontuacoes = {};
 
     for (const votacao of votacoesChave) {
-      const { idPergunta, idVotacao, votoSimRepresenta } = votacao;
+      const { idPergunta, idVotacao } = votacao;
       const respostaUsuario = respostasUsuario[idPergunta];
       if (!respostaUsuario || respostaUsuario === 'abster') continue;
 
@@ -30,10 +35,10 @@ router.post('/dna-politico', async (req, res) => {
       const votosDeputados = responseVotos.data.dados;
 
       for (const votoDeputado of votosDeputados) {
-        const infoDeputado = votoDeputado.deputado_;
-        if (!infoDeputado) continue;
+        const infoDeputadoApi = votoDeputado.deputado_;
+        if (!infoDeputadoApi) continue;
 
-        const idDeputado = infoDeputado.id;
+        const idDeputado = infoDeputadoApi.id;
         if (!pontuacoes[idDeputado]) {
           pontuacoes[idDeputado] = { pontos: 0, total: 0 };
         }
@@ -43,7 +48,7 @@ router.post('/dna-politico', async (req, res) => {
 
         if (tipoVoto === 'sim' || tipoVoto === 'nao') {
           pontuacoes[idDeputado].total++;
-          let votoNormalizado = (votoSimRepresenta === 'sim') ? tipoVoto : (tipoVoto === 'sim' ? 'nao' : 'sim');
+          const votoNormalizado = (votacao.votoSimRepresenta === 'sim') ? tipoVoto : (tipoVoto === 'sim' ? 'nao' : 'sim');
           if (votoNormalizado === respostaUsuario) {
             pontuacoes[idDeputado].pontos++;
           }
@@ -52,36 +57,29 @@ router.post('/dna-politico', async (req, res) => {
     }
 
     const deputadosResponse = await axios.get('http://localhost:8000/api/deputados');
-    const infoTodosDeputados = deputadosResponse.data.reduce((map, dep) => {
+    const todosDeputadosMap = deputadosResponse.data.reduce((map, dep) => {
       map[dep.id] = dep;
       return map;
     }, {});
 
     const resultadosFinais = Object.entries(pontuacoes)
       .map(([idDeputado, pontuacao]) => {
-        const infoDeputado = infoTodosDeputados[idDeputado];
+        const infoCompletaDeputado = todosDeputadosMap[idDeputado];
+        if (!infoCompletaDeputado) return null;
 
-        // --- CORREÇÃO FINAL E MAIS IMPORTANTE ---
-        // Se o deputado que votou não está na nossa lista principal, ignoramo-lo.
-        if (!infoDeputado) {
-          return null;
-        }
-
+        // --- LÓGICA DE SUAVIZAÇÃO DE LAPLACE APLICADA ---
+        // Adicionamos 1 aos "acertos" e 2 ao "total" para suavizar a pontuação
         const afinidade = (pontuacao.total > 0)
-          ? Math.round((pontuacao.pontos / pontuacao.total) * 100)
-          : 0;
+          ? Math.round(((pontuacao.pontos + 1) / (pontuacao.total + 2)) * 100)
+          : 0; // Se não houver votos, a afinidade é 0
 
         return {
-          id: idDeputado,
-          nome: infoDeputado.nome,
-          partido: infoDeputado.partido,
-          uf: infoDeputado.uf,
-          foto: infoDeputado.foto,
+          ...infoCompletaDeputado,
           affinity: afinidade,
           votosConsiderados: pontuacao.total,
         };
       })
-      .filter(Boolean); // Remove qualquer entrada nula (os "fantasmas")
+      .filter(Boolean);
 
     resultadosFinais.sort((a, b) => {
       if (b.affinity !== a.affinity) return b.affinity - a.affinity;
