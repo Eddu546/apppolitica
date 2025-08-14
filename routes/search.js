@@ -3,45 +3,56 @@ import axios from 'axios';
 
 const router = express.Router();
 
-// A rota aceitará uma query, ex: /api/search?q=Moro
+// Rota para busca de deputados e senadores por nome parcial (case insensitive)
 router.get('/', async (req, res) => {
-  const { q } = req.query; // Pega o termo de busca da URL
+  const { q } = req.query;
 
-  // Se não houver termo de busca, retorna um array vazio.
-  if (!q) {
+  if (!q || q.trim() === '') {
     return res.json([]);
   }
 
   try {
-    // 1. Define as URLs das nossas próprias APIs locais
+    // URLs do backend local para deputados e senadores
     const deputadosUrl = 'http://localhost:8000/api/deputados';
     const senadoresUrl = 'http://localhost:8000/api/senadores';
 
-    // 2. Faz as duas chamadas ao mesmo tempo para ser mais rápido
-    const [deputadosResponse, senadoresResponse] = await Promise.all([
+    // Buscar deputados e senadores ao mesmo tempo
+    const [deputadosResp, senadoresResp] = await Promise.all([
       axios.get(deputadosUrl),
-      axios.get(senadoresUrl)
+      axios.get(senadoresUrl),
     ]);
 
-    // 3. Adiciona um campo 'tipo' para sabermos quem é quem no frontend
-    const deputados = deputadosResponse.data.map(d => ({ ...d, tipo: 'Deputado' }));
-    const senadores = senadoresResponse.data.map(s => ({ ...s, tipo: 'Senador' }));
-    
-    // 4. Junta as duas listas em uma só
-    const todosPoliticos = [...deputados, ...senadores];
+    // Mapear deputados
+    const deputados = deputadosResp.data.map(dep => ({
+      id: dep.id,
+      nome: dep.nome,
+      partido: dep.partido,
+      uf: dep.uf,
+      foto: dep.foto,
+      tipo: 'Deputado',
+    }));
 
-    // 5. Filtra a lista completa pelo termo de busca (ignorando maiúsculas/minúsculas)
+    // Mapear senadores
+    const senadores = senadoresResp.data.map(sen => ({
+      id: sen.id,
+      nome: sen.nome,
+      partido: sen.partido,
+      uf: sen.uf,
+      foto: sen.foto,
+      tipo: 'Senador',
+    }));
+
     const termoBusca = q.toLowerCase();
-    const resultados = todosPoliticos.filter(politico => 
-      politico.nome.toLowerCase().includes(termoBusca)
+
+    // Filtrar deputados e senadores que contenham o termo no nome (includes parcial)
+    const resultados = [...deputados, ...senadores].filter(p =>
+      p.nome.toLowerCase().includes(termoBusca)
     );
 
-    // 6. Retorna os resultados encontrados
     res.json(resultados);
-
   } catch (error) {
-    console.error('Erro ao realizar a busca:', error.message);
-    res.status(500).json({ error: 'Erro interno ao processar a busca' });
+    console.error('Erro ao realizar busca:', error.message);
+    res.status(500).json({ error: 'Erro interno na busca' });
   }
 });
 

@@ -2,81 +2,127 @@ import express from 'express';
 import axios from 'axios';
 
 const router = express.Router();
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// ROTA 1: PRESENÇA INDIVIDUAL EM VOTAÇÕES
-router.get('/:tipo/:id/presenca', async (req, res) => {
-  const { id } = req.params;
+// API Câmara e Senado para deputados e senadores
+
+// Função para buscar dados de atividade legislativa do deputado
+async function buscarAtividadeDeputado(idDeputado) {
+  // API correta: usar votacoes endpoint para deputado
+  const url = `https://dadosabertos.camara.leg.br/api/v2/deputados/${idDeputado}/votacoes`;
   try {
-    const votacoesUrl = 'https://dadosabertos.camara.leg.br/api/v2/votacoes?ordem=DESC&ordenarPor=dataHoraRegistro&itens=100';
-    const votacoesResponse = await axios.get(votacoesUrl);
-    const ultimasVotacoes = votacoesResponse.data.dados;
-
-    let totalVotacoes = ultimasVotacoes.length;
-    let presencas = 0;
-    
-    const promessasVotos = ultimasVotacoes.map(v => axios.get(v.uri + '/votos'));
-    const respostasVotos = await Promise.all(promessasVotos);
-
-    for (const resposta of respostasVotos) {
-      const votos = resposta.data.dados;
-      if (votos.some(voto => voto.deputado_?.id.toString() === id)) {
-        presencas++;
-      }
-    }
-
-    const percentualPresenca = totalVotacoes > 0 ? (presencas / totalVotacoes) * 100 : 0;
-    res.json({ presenca: percentualPresenca });
-
+    const response = await axios.get(url);
+    return response.data.dados || [];
   } catch (error) {
-    console.error(`Erro ao calcular presença para o ID ${id}:`, error.message);
-    res.status(500).json({ presenca: 0, error: 'Erro ao processar dados' });
+    throw new Error(`Erro atividade deputado: ${error.response?.status || error.message}`);
   }
-});
+}
 
-
-// ROTA 2: LEALDADE PARTIDÁRIA INDIVIDUAL
-router.get('/:tipo/:id/lealdade', async (req, res) => {
-  const { id, tipo } = req.params;
+// Função para buscar gastos do deputado
+async function buscarGastosDeputado(idDeputado) {
+  const url = `https://dadosabertos.camara.leg.br/api/v2/deputados/${idDeputado}/despesas`;
   try {
-    const politicoUrl = `http://localhost:8000/api/${tipo}s/${id}`;
-    const politicoRes = await axios.get(politicoUrl);
-    const partidoDoPolitico = politicoRes.data.ultimoStatus.siglaPartido;
+    const response = await axios.get(url);
+    return response.data.dados || [];
+  } catch (error) {
+    throw new Error(`Erro gastos deputado: ${error.response?.status || error.message}`);
+  }
+}
 
-    const votacoesUrl = `https://dadosabertos.camara.leg.br/api/v2/votacoes?ordem=DESC&ordenarPor=dataHoraRegistro&itens=100`;
-    const votacoesResponse = await axios.get(votacoesUrl);
-    const ultimasVotacoes = votacoesResponse.data.dados;
+// Função para buscar presença do deputado
+async function buscarPresencaDeputado(idDeputado) {
+  const url = `https://dadosabertos.camara.leg.br/api/v2/deputados/${idDeputado}/presencas`;
+  try {
+    const response = await axios.get(url);
+    return response.data.dados || [];
+  } catch (error) {
+    throw new Error(`Erro presença deputado: ${error.response?.status || error.message}`);
+  }
+}
 
-    let totalVotosConsiderados = 0;
-    let totalVotosAlinhados = 0;
+// Função para buscar lealdade do deputado
+async function buscarLealdadeDeputado(idDeputado) {
+  // A API da Câmara não possui endpoint direto para lealdade, pode ser calculado manualmente com votações
+  // Aqui só retornamos vazio ou implementar lógica personalizada
+  return [];
+}
 
-    for (const votacao of ultimasVotacoes) {
-      const detalhesRes = await axios.get(votacao.uri);
-      const orientacoes = detalhesRes.data.dados?.orientacoesBancadas?.bancada;
-      if (!orientacoes) continue;
+// Função para buscar dados de senador - similar, porém endpoints Senado são diferentes
 
-      const orientacaoDoMeuPartido = orientacoes.find(o => o.sigla === partidoDoPolitico);
+async function buscarAtividadeSenador(idSenador) {
+  const url = `https://legis.senado.leg.br/dadosabertos/senador/${idSenador}/votacoes`;
+  try {
+    const response = await axios.get(url, { headers: { Accept: 'application/json' } });
+    return response.data.dados || [];
+  } catch (error) {
+    throw new Error(`Erro atividade senador: ${error.response?.status || error.message}`);
+  }
+}
 
-      if (!orientacaoDoMeuPartido) continue;
+async function buscarGastosSenador(idSenador) {
+  // Senado não fornece API pública de despesas; retorna URL externa
+  return { urlExterna: `https://www6g.senado.leg.br/transparencia/sen/${idSenador}/` };
+}
 
-      const votosRes = await axios.get(votacao.uri + '/votos');
-      const votoDoPolitico = votosRes.data.dados.find(v => v.deputado_?.id.toString() === id);
+async function buscarPresencaSenador(idSenador) {
+  const url = `https://legis.senado.leg.br/dadosabertos/senador/${idSenador}/presencas`;
+  try {
+    const response = await axios.get(url, { headers: { Accept: 'application/json' } });
+    return response.data.dados || [];
+  } catch (error) {
+    throw new Error(`Erro presença senador: ${error.response?.status || error.message}`);
+  }
+}
 
-      if (votoDoPolitico && (votoDoPolitico.tipoVoto === "Sim" || votoDoPolitico.tipoVoto === "Não")) {
-        totalVotosConsiderados++;
-        if (votoDoPolitico.tipoVoto === orientacaoDoMeuPartido.orientacao) {
-          totalVotosAlinhados++;
-        }
+async function buscarLealdadeSenador(idSenador) {
+  // Sem endpoint oficial, retorna vazio
+  return [];
+}
+
+// Rota principal para KPIs
+router.get('/:tipo/:id/:kpi', async (req, res) => {
+  const { tipo, id, kpi } = req.params;
+
+  try {
+    if (tipo === 'deputado') {
+      if (kpi === 'atividade') {
+        const dados = await buscarAtividadeDeputado(id);
+        return res.json({ atividade: dados.length, dados });
       }
-      await sleep(100);
+      if (kpi === 'gastos') {
+        const gastos = await buscarGastosDeputado(id);
+        return res.json({ gastos: gastos.length, gastos });
+      }
+      if (kpi === 'presenca') {
+        const presencas = await buscarPresencaDeputado(id);
+        return res.json({ presencas: presencas.length, presencas });
+      }
+      if (kpi === 'lealdade') {
+        const lealdade = await buscarLealdadeDeputado(id);
+        return res.json({ lealdade });
+      }
+    } else if (tipo === 'senador') {
+      if (kpi === 'atividade') {
+        const dados = await buscarAtividadeSenador(id);
+        return res.json({ atividade: dados.length, dados });
+      }
+      if (kpi === 'gastos') {
+        const gastos = await buscarGastosSenador(id);
+        return res.json({ gastos });
+      }
+      if (kpi === 'presenca') {
+        const presencas = await buscarPresencaSenador(id);
+        return res.json({ presencas: presencas.length, presencas });
+      }
+      if (kpi === 'lealdade') {
+        const lealdade = await buscarLealdadeSenador(id);
+        return res.json({ lealdade });
+      }
     }
 
-    const percentualLealdade = totalVotosConsiderados > 0 ? (totalVotosAlinhados / totalVotosConsiderados) * 100 : 0;
-    res.json({ lealdade: percentualLealdade });
-
+    res.status(404).json({ error: 'KPI ou tipo inválido' });
   } catch (error) {
-    console.error(`Erro ao calcular lealdade para o ID ${id}:`, error.message);
-    res.status(500).json({ lealdade: 0, error: 'Erro ao processar dados' });
+    console.error(`Erro ao calcular ${kpi} para ${tipo} ID ${id}:`, error.message);
+    res.status(500).json({ error: error.message });
   }
 });
 
