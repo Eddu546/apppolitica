@@ -1,238 +1,330 @@
-import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
-import { Doughnut, Bar } from "react-chartjs-2";
-import { Chart as ChartJS, ArcElement, Tooltip, Legend, BarElement, CategoryScale, LinearScale, Title } from "chart.js";
-import { Button } from "@/components/ui/button";
-import { ExternalLink } from "lucide-react";
+import { Link, useParams } from 'react-router-dom';
+import { ArrowLeft, AlertTriangle, BarChart3, DollarSign, ExternalLink, FileText, ListChecks, Loader2 } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import AusteritySealPanel from '@/components/AusteritySealPanel';
+import ExpenseComparisonPanel from '@/components/ExpenseComparisonPanel';
+import ProfileAttentionPanel from '@/components/ProfileAttentionPanel';
+import SensitiveCeapPanel from '@/components/SensitiveCeapPanel';
+import { useToast } from '@/components/ui/use-toast';
+import TrustMetricCard from '@/components/TrustMetricCard';
+import ValidatedMetricsPanel from '@/components/ValidatedMetricsPanel';
+import VotingHighlightsPanel from '@/components/VotingHighlightsPanel';
+import {
+  buildDeputadoMetrics,
+  buildFiscalizationIndex,
+  filterComplexProjects,
+  formatCurrency,
+  groupExpensesByMonth,
+  groupExpensesByType,
+} from '@/lib/legislative-logic';
+import {
+  buildDeputyAnnualExpenseSummary,
+  buildSpendingAttentionPoints,
+  computeExpenseComparisons,
+  fetchDeputyYearSummaries,
+} from '@/services/annualSummaries';
+import {
+  getDeputadoDespesas,
+  getDeputadoDiscursos,
+  getDeputadoEventos,
+  getDeputadoInfo,
+  getDeputadoProposicoes,
+  getDeputadoVotacoes,
+} from '@/services/camara';
+import {
+  analyzeVehicleRentalExpenses,
+  buildAusteritySeal,
+  buildSensitiveCeapSummary,
+  fetchDeputyHousingBenefits,
+} from '@/services/benefits';
+import { fetchValidatedMetrics } from '@/services/corrections';
 
-// Registra todos os componentes do Chart.js que vamos usar
-ChartJS.register(ArcElement, Tooltip, Legend, BarElement, CategoryScale, LinearScale, Title);
-
-// Funções de formatação
-const formatCurrency = (value) => {
-  if (value === null || value === undefined) return 'N/A';
-  return parseFloat(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-};
-
-const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    try {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('pt-BR');
-    } catch (e) {
-        return 'Data inválida';
-    }
-};
+const ProjectList = ({ lista }) => (
+  <div className="space-y-3">
+    {lista.slice(0, 12).map((proj) => (
+      <div key={proj.id} className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
+        <div className="flex justify-between items-start gap-2 mb-2">
+          <span className="text-[11px] uppercase font-bold px-2 py-1 rounded bg-slate-100 text-slate-700">
+            {proj.siglaTipo} {proj.numero}/{proj.ano}
+          </span>
+          <a href={`https://www.camara.leg.br/propostas-legislativas/${proj.id}`} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="w-4 h-4 text-gray-400 hover:text-blue-600" />
+          </a>
+        </div>
+        <p className="text-sm text-gray-700 leading-relaxed line-clamp-3">{proj.ementa}</p>
+      </div>
+    ))}
+    {lista.length === 0 && (
+      <div className="text-center py-10 text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+        Nenhuma proposicao foi retornada pela API para este periodo.
+      </div>
+    )}
+  </div>
+);
 
 const PoliticianProfilePage = () => {
-  const { tipo, id } = useParams();
+  const { id } = useParams();
+  const { toast } = useToast();
+  const [anoSelecionado, setAnoSelecionado] = useState('2024');
   const [politico, setPolitico] = useState(null);
-  const [despesas, setDespesas] = useState([]);
-  const [proposicoes, setProposicoes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [partialError, setPartialError] = useState(false);
+  const [proposicoes, setProposicoes] = useState([]);
+  const [despesas, setDespesas] = useState([]);
+  const [eventos, setEventos] = useState([]);
+  const [discursos, setDiscursos] = useState([]);
+  const [votacoes, setVotacoes] = useState([]);
+  const [metricasValidadas, setMetricasValidadas] = useState([]);
+  const [expenseComparison, setExpenseComparison] = useState(null);
+  const [attentionPoints, setAttentionPoints] = useState([]);
+  const [austeritySeal, setAusteritySeal] = useState(null);
+
+  const anosDisponiveis = ['2023', '2024', '2025'];
 
   useEffect(() => {
-    const fetchData = async () => {
+    const carregarDados = async () => {
+      if (!id) return;
       setLoading(true);
-      setError(null);
-      try {
-        const apiEndpoint = tipo === 'deputado' ? 'deputados' : 'senadores';
-        const baseUrl = `http://localhost:8000/api/${apiEndpoint}`;
+      setPartialError(false);
+      setAusteritySeal(null);
 
-        const [politicoRes, despesasRes, proposicoesRes] = await Promise.all([
-          fetch(`${baseUrl}/${id}`),
-          fetch(`${baseUrl}/${id}/despesas`),
-          fetch(`${baseUrl}/${id}/proposicoes`),
+      try {
+        const dataInfo = await getDeputadoInfo(id);
+        if (!dataInfo) throw new Error('Perfil nao encontrado');
+
+        setPolitico(dataInfo);
+        const nomeParlamentar = dataInfo.ultimoStatus?.nomeEleitoral || dataInfo.nomeEleitoral;
+        const ano = parseInt(anoSelecionado, 10);
+        const [
+          listaProposicoes,
+          listaDespesas,
+          listaEventos,
+          listaDiscursos,
+          listaVotacoes,
+          listaValidadas,
+          moradia,
+        ] = await Promise.all([
+          getDeputadoProposicoes(id, ano),
+          getDeputadoDespesas(id, ano),
+          getDeputadoEventos(id, ano),
+          getDeputadoDiscursos(id, ano),
+          getDeputadoVotacoes(id, ano),
+          nomeParlamentar
+            ? fetchValidatedMetrics({ parlamentar: nomeParlamentar, ano: anoSelecionado })
+              .then((result) => result.data || [])
+              .catch(() => [])
+            : Promise.resolve([]),
+          fetchDeputyHousingBenefits(id),
         ]);
 
-        if (!politicoRes.ok) throw new Error(`Falha ao buscar dados do ${tipo}`);
-        
-        const politicoData = await politicoRes.json();
-        const despesasData = despesasRes.ok ? await despesasRes.json() : [];
-        const proposicoesData = proposicoesRes.ok ? await proposicoesRes.json() : [];
+        if (!listaProposicoes || !listaDespesas || !listaEventos || !listaDiscursos || !listaVotacoes) {
+          setPartialError(true);
+        }
 
-        setPolitico(politicoData);
-        setDespesas(despesasData);
-        setProposicoes(proposicoesData);
+        setProposicoes(listaProposicoes || []);
+        setDespesas(listaDespesas || []);
+        setEventos(listaEventos || []);
+        setDiscursos(listaDiscursos || []);
+        setVotacoes(listaVotacoes || []);
+        setMetricasValidadas(listaValidadas || []);
+        setAusteritySeal(
+          buildAusteritySeal({
+            vehicleRental: analyzeVehicleRentalExpenses(listaDespesas || [], { deputadoId: id, ano: anoSelecionado }),
+            housingBenefits: moradia,
+          })
+        );
 
-      } catch (err) {
-        setError(err.message);
+        const currentSummary = buildDeputyAnnualExpenseSummary({
+          deputado: dataInfo,
+          despesas: listaDespesas || [],
+          ano: anoSelecionado,
+        });
+        const summariesResult = await fetchDeputyYearSummaries(anoSelecionado).catch(() => ({ ok: false, data: [] }));
+        const annualSummaries = summariesResult.data || [];
+        setExpenseComparison(computeExpenseComparisons(currentSummary, annualSummaries));
+        setAttentionPoints(
+          buildSpendingAttentionPoints([...annualSummaries, currentSummary])
+            .filter((point) => String(point.deputyId) === String(currentSummary.deputado_id))
+        );
+      } catch (error) {
+        console.error('Erro ao carregar perfil:', error);
+        toast({ title: 'Erro', description: 'Nao foi possivel carregar os dados oficiais.', variant: 'destructive' });
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
-  }, [id, tipo]);
+    carregarDados();
+  }, [id, anoSelecionado, toast]);
 
-  // Funções "inteligentes" para obter os dados corretos
-  const getNome = () => politico?.ultimoStatus?.nome || politico?.IdentificacaoParlamentar?.NomeParlamentar;
-  const getFoto = () => politico?.ultimoStatus?.urlFoto || politico?.IdentificacaoParlamentar?.UrlFotoParlamentar;
-  const getPartidoUF = () => `${politico?.ultimoStatus?.siglaPartido || politico?.IdentificacaoParlamentar?.SiglaPartidoParlamentar} - ${politico?.ultimoStatus?.siglaUf || politico?.IdentificacaoParlamentar?.UfParlamentar}`;
-  const getEmail = () => politico?.ultimoStatus?.email || politico?.IdentificacaoParlamentar?.EmailParlamentar;
+  const metrics = useMemo(
+    () => buildDeputadoMetrics({ proposicoes, despesas, eventos, discursos, votacoes }),
+    [proposicoes, despesas, eventos, discursos, votacoes]
+  );
+  const fiscalizationIndex = useMemo(() => buildFiscalizationIndex(metrics), [metrics]);
+  const projetosComplexos = useMemo(() => filterComplexProjects(proposicoes), [proposicoes]);
+  const graficoData = useMemo(() => groupExpensesByType(despesas), [despesas]);
+  const graficoMensal = useMemo(() => groupExpensesByMonth(despesas), [despesas]);
+  const sensitiveCeapSummary = useMemo(
+    () => buildSensitiveCeapSummary(despesas, { deputadoId: id, ano: anoSelecionado }),
+    [despesas, id, anoSelecionado]
+  );
 
-  // --- Funções para os gráficos (agora usadas apenas para deputados) ---
-  const getDeputadoDespesasChartData = () => {
-    const despesasAgrupadas = despesas.reduce((acc, d) => {
-      const tipo = d.tipoDespesa;
-      const valor = parseFloat(d.valorLiquido);
-      if (!acc[tipo]) acc[tipo] = 0;
-      acc[tipo] += valor;
-      return acc;
-    }, {});
-    const sortedDespesas = Object.entries(despesasAgrupadas).sort(([,a],[,b]) => b-a).slice(0, 7);
-    return {
-      labels: sortedDespesas.map(([tipo]) => tipo),
-      datasets: [{
-        label: 'Gastos por Tipo (R$)',
-        data: sortedDespesas.map(([, valor]) => valor.toFixed(2)),
-        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF'],
-      }],
-    };
-  };
-
-  const getDeputadoProposicoesChartData = () => {
-    const proposicoesPorAno = proposicoes.reduce((acc, p) => {
-      const ano = p.ano;
-      if (!acc[ano]) acc[ano] = 0;
-      acc[ano]++;
-      return acc;
-    }, {});
-    const sortedAnos = Object.entries(proposicoesPorAno).sort(([a],[b]) => a-b);
-    return {
-      labels: sortedAnos.map(([ano]) => ano),
-      datasets: [{
-        label: 'Quantidade de Proposições',
-        data: sortedAnos.map(([, count]) => count),
-        backgroundColor: 'rgba(54, 162, 235, 0.6)',
-      }],
-    };
-  };
-
-  if (loading) return <div className="p-6 text-center text-lg font-semibold">A carregar perfil...</div>;
-  if (error) return <div className="p-6 text-center text-red-600">Erro: {error}</div>;
-  if (!politico) return <div className="p-6 text-center">Político não encontrado.</div>;
-
-  // --- Renderização Separada para cada Tipo de Político ---
-
-  if (tipo === 'deputado') {
-    return (
-      <>
-        <Helmet><title>{`Perfil: ${getNome()} - Fiscaliza, MBL!`}</title></Helmet>
-        <div className="max-w-5xl mx-auto p-4 md:p-8">
-          <div className="flex flex-col sm:flex-row items-center gap-6 mb-10 p-6 bg-white rounded-lg shadow-md border">
-            <img src={getFoto()} alt={`Foto de ${getNome()}`} className="w-32 h-32 rounded-full border-4 border-yellow-400 object-cover" />
-            <div>
-              <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900">{getNome()}</h1>
-              <p className="text-xl text-gray-600">{getPartidoUF()}</p>
-              <p className="text-sm text-gray-500 mt-2">Email: <a href={`mailto:${getEmail()}`} className="text-yellow-600 hover:underline">{getEmail()}</a></p>
-            </div>
-          </div>
-
-          <div className="mb-12 bg-white p-6 rounded-lg shadow-md border">
-            <h2 className="text-2xl font-bold text-center mb-6">Despesas da Cota Parlamentar</h2>
-            {despesas.length > 0 ? (
-              <>
-                <div className="max-w-md mx-auto mb-10">
-                  <Doughnut data={getDeputadoDespesasChartData()} options={{ plugins: { title: { display: true, text: 'Top 7 Tipos de Gastos (R$)' } } }} />
-                </div>
-                <h3 className="text-xl font-bold mb-4 text-gray-800">Últimos Gastos Detalhados</h3>
-                <div className="overflow-x-auto rounded-lg border">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo de Despesa</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fornecedor</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {despesas.slice(0, 10).map((gasto) => (
-                        <tr key={gasto.codDocumento}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatDate(gasto.dataDocumento)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{gasto.tipoDespesa}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{gasto.nomeFornecedor}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{formatCurrency(gasto.valorLiquido)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : (
-              <p className="text-center text-gray-500">Nenhuma despesa registada para este parlamentar.</p>
-            )}
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-md border">
-            <h2 className="text-2xl font-bold text-center mb-6">Atividade Legislativa</h2>
-            {proposicoes.length > 0 ? (
-              <>
-                <div className="max-w-2xl mx-auto mb-10">
-                  <Bar data={getDeputadoProposicoesChartData()} options={{ plugins: { title: { display: true, text: 'Proposições Apresentadas por Ano' } } }} />
-                </div>
-                <h3 className="text-xl font-bold mb-4">Principais Proposições:</h3>
-                <ul className="list-disc pl-5 space-y-3 text-gray-700">
-                  {proposicoes.slice(0, 5).map(p => (
-                    <li key={p.id}>
-                      <span className="font-semibold">{p.siglaTipo} {p.numero}/{p.ano}</span> - {p.ementa}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : (
-              <p className="text-center text-gray-500">Nenhuma proposição registada para este parlamentar.</p>
-            )}
-          </div>
-        </div>
-      </>
-    );
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="w-12 h-12 text-blue-600 animate-spin" /></div>;
   }
 
-  // Renderização para Senadores (voltamos ao botão externo, que é estável)
-  return (
-    <>
-      <Helmet><title>{`Perfil: ${getNome()} - Fiscaliza, MBL!`}</title></Helmet>
-      <div className="max-w-5xl mx-auto p-4 md:p-8">
-        <div className="flex flex-col sm:flex-row items-center gap-6 mb-10 p-6 bg-white rounded-lg shadow-md border">
-          <img src={getFoto()} alt={`Foto de ${getNome()}`} className="w-32 h-32 rounded-full border-4 border-yellow-400 object-cover" />
-          <div>
-            <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900">{getNome()}</h1>
-            <p className="text-xl text-gray-600">{getPartidoUF()}</p>
-            <p className="text-sm text-gray-500 mt-2">Email: <a href={`mailto:${getEmail()}`} className="text-yellow-600 hover:underline">{getEmail()}</a></p>
-          </div>
-        </div>
+  if (!politico) {
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50">Deputado nao encontrado.</div>;
+  }
 
-        <div className="mb-12 bg-white p-6 rounded-lg shadow-md border">
-          <h2 className="text-2xl font-bold text-center mb-6">Despesas Parlamentares</h2>
-          <div className="text-center">
-              <p className="text-gray-600 mb-4">As despesas dos senadores são detalhadas no Portal da Transparência do Senado Federal.</p>
-              <a href={despesas.urlExterna} target="_blank" rel="noopener noreferrer">
-                  <Button className="bg-yellow-400 text-black hover:bg-yellow-500 font-bold">
-                      Ver Despesas no Portal do Senado <ExternalLink className="ml-2 w-4 h-4" />
+  const info = politico.ultimoStatus || politico;
+
+  return (
+    <div className="min-h-screen bg-gray-50 pb-20">
+      <Helmet><title>{info.nomeEleitoral} - FISCALIZA</title></Helmet>
+
+      <div className="bg-white border-b shadow-sm pt-6 pb-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Link to="/deputados" className="text-gray-500 hover:text-blue-600 inline-flex items-center text-sm mb-6 font-medium">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
+          </Link>
+          <div className="flex flex-col md:flex-row gap-8">
+            <img src={info.urlFoto} alt={info.nomeEleitoral} className="w-48 h-48 rounded-full object-cover border-4 border-white shadow-xl bg-gray-200" />
+            <div className="flex-1">
+              <h1 className="text-4xl font-extrabold text-gray-900">{info.nomeEleitoral}</h1>
+              <p className="text-lg text-gray-600 mt-2">{info.siglaPartido} / {info.siglaUf}</p>
+              {info.partyCorrection && (
+                <p className="mt-1 text-xs font-semibold text-blue-700">
+                  Partido confirmado pela fonte oficial: {info.partyCorrection.sourceName}
+                </p>
+              )}
+              <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
+                Este perfil mostra apenas indicadores auditaveis ou explicitamente limitados. O FISCALIZA nao calcula faltas, relatorias aprovadas ou score geral quando a API nao sustenta esse numero diretamente.
+              </div>
+              {partialError && (
+                <div className="mt-4 bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg" role="alert">
+                  <p className="font-bold flex items-center"><AlertTriangle className="w-4 h-4 mr-2" /> Dados parciais</p>
+                  <p>Algumas consultas oficiais falharam. Os indicadores podem estar incompletos.</p>
+                </div>
+              )}
+            </div>
+            <div className="bg-white border border-gray-200 rounded-xl p-5 min-w-[220px]">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Ano consultado</p>
+              <div className="flex gap-2 mt-3">
+                {anosDisponiveis.map((ano) => (
+                  <Button key={ano} variant={anoSelecionado === ano ? 'default' : 'outline'} size="sm" onClick={() => setAnoSelecionado(ano)}>
+                    {ano}
                   </Button>
-              </a>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow-md border">
-          <h2 className="text-2xl font-bold text-center mb-6">Atividade Legislativa</h2>
-          {proposicoes && proposicoes.length > 0 ? (
-            <ul className="list-disc pl-5 space-y-3 text-gray-700">
-              {proposicoes.slice(0, 5).map((p, index) => (
-                <li key={p.IdentificacaoMateria?.CodigoMateria || `prop-senador-${index}`}>
-                  <span className="font-semibold">{p.IdentificacaoMateria?.SiglaCasaIdentificacaoMateria || ''} {p.IdentificacaoMateria?.NumeroMateria || ''}/{p.IdentificacaoMateria?.AnoMateria || ''}</span>
-                  - {p.EmentaMateria || "Ementa não disponível."}
-                </li>
-              ))}
-            </ul>
-          ) : <p className="text-center text-gray-500">Nenhuma proposição registada para este parlamentar.</p>}
         </div>
       </div>
-    </>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-6">
+          <AusteritySealPanel seal={austeritySeal} />
+        </div>
+
+        <Tabs defaultValue="indicadores" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+            <TabsTrigger value="indicadores"><BarChart3 className="w-4 h-4 mr-2" /> Indicadores</TabsTrigger>
+            <TabsTrigger value="proposicoes"><FileText className="w-4 h-4 mr-2" /> Proposicoes</TabsTrigger>
+            <TabsTrigger value="votacoes"><ListChecks className="w-4 h-4 mr-2" /> Votacoes</TabsTrigger>
+            <TabsTrigger value="gastos"><DollarSign className="w-4 h-4 mr-2" /> Gastos</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="indicadores" className="mt-6">
+            <div className="mb-5">
+              <ValidatedMetricsPanel items={metricasValidadas} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+              <TrustMetricCard metric={metrics.proposicoes} />
+              <TrustMetricCard metric={metrics.projetosLegislativos} />
+              <TrustMetricCard metric={metrics.totalGastoAno} />
+              <TrustMetricCard metric={metrics.mediaMensalGasto} />
+              <TrustMetricCard metric={metrics.quantidadeDespesas} />
+              <TrustMetricCard metric={metrics.maiorFornecedor} />
+              <TrustMetricCard metric={metrics.atividades} />
+              <TrustMetricCard metric={metrics.discursos} />
+              <TrustMetricCard metric={metrics.votacoesNominais} />
+              <TrustMetricCard metric={metrics.relatorias} />
+              <TrustMetricCard metric={metrics.presenca} />
+              <TrustMetricCard metric={fiscalizationIndex} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="proposicoes" className="mt-6">
+            <Card>
+              <CardContent className="p-6">
+                <div className="mb-5">
+                  <h2 className="text-xl font-bold text-gray-900">Proposicoes legislativas encontradas</h2>
+                  <p className="text-sm text-gray-600">Fonte: Dados Abertos da Camara. Esta lista nao representa relatorias aprovadas.</p>
+                </div>
+                <ProjectList lista={projetosComplexos} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="votacoes" className="mt-6">
+            <VotingHighlightsPanel votacoes={votacoes} ano={anoSelecionado} metric={metrics.votacoesNominais} />
+          </TabsContent>
+
+          <TabsContent value="gastos" className="mt-6">
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="font-bold mb-2">Gastos da cota parlamentar ({anoSelecionado})</h2>
+                <p className="text-3xl font-bold mb-1">{formatCurrency(metrics.totalGastoAno.value || 0)}</p>
+                <p className="text-sm text-gray-600 mb-6">
+                  Fonte: Dados Abertos da Camara. Soma dos valores liquidos retornados pela API. CEAP e a cota usada para despesas ligadas ao mandato parlamentar.
+                </p>
+                <div className="mb-6">
+                  <ProfileAttentionPanel points={attentionPoints} />
+                </div>
+                <div className="mb-6">
+                  <ExpenseComparisonPanel comparison={expenseComparison} ano={anoSelecionado} />
+                </div>
+                <div className="mb-6">
+                  <SensitiveCeapPanel summary={sensitiveCeapSummary} />
+                </div>
+                <div style={{ width: '100%', height: 320 }}>
+                  <ResponsiveContainer>
+                    <BarChart data={graficoData} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" />
+                      <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 12 }} />
+                      <Tooltip formatter={(value) => formatCurrency(value)} />
+                      <Bar dataKey="value" fill="#2563eb" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="mt-8">
+                  <h3 className="font-bold mb-2">Evolucao mensal de gastos</h3>
+                  <div style={{ width: '100%', height: 260 }}>
+                    <ResponsiveContainer>
+                      <BarChart data={graficoMensal}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" />
+                        <YAxis />
+                        <Tooltip formatter={(value) => formatCurrency(value)} />
+                        <Bar dataKey="value" fill="#0f766e" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
   );
 };
 

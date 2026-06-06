@@ -1,138 +1,228 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
-import { motion } from 'framer-motion';
-import { Dna, ArrowRight, CheckCircle, RefreshCw, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { useToast } from '@/components/ui/use-toast';
+import { motion } from 'framer-motion';
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  ClipboardList,
+  ExternalLink,
+  RotateCcw,
+  ShieldCheck,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { buildCivicAuditPlan, civicAuditQuestions } from '@/lib/civic-audit-plan';
+
+const confidenceLabels = {
+  high: 'Alta confianca',
+  medium: 'Confianca limitada',
+  low: 'Baixa confianca',
+};
 
 const DnaPoliticoPage = () => {
   const [step, setStep] = useState('intro');
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState({});
-  const [results, setResults] = useState([]);
-  const { toast } = useToast();
 
-  const questions = [
-    { id: 'q1', text: 'Você é a favor da privatização de empresas estatais?' },
-    { id: 'q2', text: 'O porte de armas para cidadãos comuns deveria ser ampliado?' },
-    { id: 'q3', text: 'Você concorda com a redução da maioridade penal?' },
-    { id: 'q4', text: 'O agronegócio deve ter menos restrições ambientais para expandir?' },
-    { id: 'q5', text: 'Você apoia uma reforma tributária que unifique impostos?' },
-    { id: 'q6', text: 'Você é a favor de uma maior regulação das redes sociais para combater fake news?' },
-    { id: 'q7', text: 'Você concorda com o "Marco Temporal" para a demarcação de terras indígenas?' },
-    { id: 'q8', text: 'O ensino domiciliar (homeschooling) deve ser legalizado no Brasil?' },
-    { id: 'q9', text: 'O Banco Central deve ter autonomia em relação ao governo federal?' },
-    { id: 'q10', text: 'As regras da lei de improbidade administrativa devem ser flexibilizadas?' },
-  ];
+  const question = civicAuditQuestions[currentQuestion];
+  const plan = useMemo(() => (step === 'results' ? buildCivicAuditPlan(answers) : null), [answers, step]);
+  const progress = ((currentQuestion + 1) / civicAuditQuestions.length) * 100;
 
-  const handleAnswer = (questionId, answer) => {
-    const newAnswers = { ...answers, [questionId]: answer };
-    setAnswers(newAnswers);
-    if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(currentQuestion + 1);
-    } else {
-      calculateResults(newAnswers);
+  const handleAnswer = (questionId, value) => {
+    const nextAnswers = { ...answers, [questionId]: value };
+    setAnswers(nextAnswers);
+
+    if (currentQuestion < civicAuditQuestions.length - 1) {
+      setCurrentQuestion((previous) => previous + 1);
+      return;
     }
+
+    setStep('results');
   };
 
-  const calculateResults = async (finalAnswers) => {
-    setStep('loading');
-    try {
-      const response = await fetch(`http://localhost:8000/api/votacoes/dna-politico`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
-        body: JSON.stringify({ answers: finalAnswers }),
-      });
-      if (!response.ok) throw new Error('Não foi possível calcular os resultados.');
-      const data = await response.json();
-      setResults(data);
-      setStep('results');
-    } catch (error) {
-        console.error("Erro ao buscar resultados:", error);
-        toast({ title: "Erro no Cálculo", description: "Não foi possível conectar ao servidor.", variant: "destructive" });
-        setStep('intro');
-    }
-  };
-
-  const restartQuiz = () => {
+  const restart = () => {
     setAnswers({});
     setCurrentQuestion(0);
-    setResults([]);
     setStep('intro');
   };
 
-  const progress = ((currentQuestion + 1) / questions.length) * 100;
-
   return (
     <>
-      <Helmet><title>Meu DNA Político - Fiscaliza, MBL!</title></Helmet>
-      <div className="bg-gray-50 text-gray-900 min-h-screen flex flex-col items-center justify-center p-4">
-        {step === 'intro' && (
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-2xl">
-            <Dna className="w-20 h-20 mx-auto text-yellow-500 mb-6" />
-            <h1 className="text-4xl md:text-5xl font-extrabold mb-4">Descubra o seu DNA Político</h1>
-            <p className="text-lg text-gray-600 mb-8">Responda a 10 perguntas-chave e revelaremos quais parlamentares têm o histórico de votação mais alinhado com as suas opiniões.</p>
-            <Button size="lg" className="bg-yellow-400 text-black hover:bg-yellow-500 font-bold" onClick={() => setStep('quiz')}>
-              Começar o Quiz <ArrowRight className="ml-2 w-5 h-5" />
-            </Button>
-          </motion.div>
-        )}
-        {step === 'quiz' && (
-          <motion.div key={currentQuestion} initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5 }} className="w-full max-w-2xl bg-white p-8 rounded-lg shadow-xl border">
-            <div className="mb-6">
-              <p className="text-yellow-500 font-bold mb-2">Pergunta {currentQuestion + 1} de {questions.length}</p>
-              <div className="w-full bg-gray-200 rounded-full h-2.5"><div className="bg-yellow-400 h-2.5 rounded-full" style={{ width: `${progress}%` }}></div></div>
+      <Helmet>
+        <title>Meu Roteiro Cidadao - FISCALIZA</title>
+        <meta
+          name="description"
+          content="Monte um roteiro de fiscalizacao cidada sem afinidade inventada, com links para indicadores auditaveis e fontes oficiais."
+        />
+      </Helmet>
+
+      <div className="min-h-screen bg-gray-50 text-gray-900">
+        <section className="border-b bg-white">
+          <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div className="max-w-3xl">
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm font-bold text-blue-700">
+                  <ShieldCheck className="h-4 w-4" />
+                  Sem match inventado
+                </div>
+                <h1 className="text-4xl font-black tracking-tight text-gray-950">Meu roteiro cidadao</h1>
+                <p className="mt-4 text-lg leading-relaxed text-gray-600">
+                  Responda tres perguntas e receba um caminho de fiscalizacao baseado no que o FISCALIZA consegue mostrar com fonte. A ferramenta nao mede ideologia, nao recomenda parlamentar e nao calcula afinidade politica.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-900 lg:max-w-sm">
+                <div className="mb-2 flex items-center gap-2 font-bold">
+                  <AlertTriangle className="h-4 w-4" />
+                  Regra de confiabilidade
+                </div>
+                <p>
+                  O resultado e um roteiro educativo. Toda conclusao sobre parlamentar deve vir dos cards com fonte oficial, data de consulta e metodo de calculo.
+                </p>
+              </div>
             </div>
-            <h2 className="text-2xl md:text-3xl font-bold mb-8">{questions[currentQuestion].text}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Button className="py-6 text-lg bg-green-600 hover:bg-green-700 text-white" onClick={() => handleAnswer(questions[currentQuestion].id, 'sim')}>Sim</Button>
-              <Button className="py-6 text-lg bg-red-600 hover:bg-red-700 text-white" onClick={() => handleAnswer(questions[currentQuestion].id, 'nao')}>Não</Button>
-              <Button variant="outline" className="py-6 text-lg" onClick={() => handleAnswer(questions[currentQuestion].id, 'abster')}>Abster-se</Button>
-            </div>
-          </motion.div>
-        )}
-        {step === 'loading' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center">
-            <Loader2 className="w-20 h-20 mx-auto text-yellow-500 mb-6 animate-spin" />
-            <h1 className="text-3xl font-bold">A calcular a sua afinidade...</h1>
-            <p className="text-gray-600 mt-2">Estamos a comparar as suas respostas com milhares de votos. Isto pode levar alguns segundos.</p>
-          </motion.div>
-        )}
-        {step === 'results' && (
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-4xl">
-            <div className="text-center mb-10">
-              <CheckCircle className="w-20 h-20 mx-auto text-green-500 mb-6" />
-              <h1 className="text-4xl md:text-5xl font-extrabold mb-4">O seu Resultado!</h1>
-            </div>
-            <div className="space-y-4">
-              {results.slice(0, 10).map((politician, index) => (
-                <motion.div key={politician.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }} className="bg-white p-4 rounded-lg shadow-md border flex items-center space-x-4">
-                  <span className="text-2xl font-bold text-gray-400 w-8 text-center">{index + 1}</span>
-                  <img className="w-16 h-16 rounded-full object-cover" alt={`Foto de ${politician.nome}`} src={politician.foto} />
-                  <div className="flex-grow">
-                    <Link to={`/politico/${politician.id}`} className="text-lg font-bold hover:text-yellow-500">{politician.nome}</Link>
-                    <p className="text-sm text-gray-500">{politician.partido}-{politician.uf}</p>
+          </div>
+        </section>
+
+        <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+          {step === 'intro' && (
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="grid gap-6 lg:grid-cols-[1fr_360px]">
+              <div className="rounded-lg border border-gray-200 bg-white p-7 shadow-sm">
+                <ClipboardList className="h-12 w-12 text-blue-600" />
+                <h2 className="mt-5 text-2xl font-black text-gray-950">Troque opiniao solta por investigacao verificavel</h2>
+                <p className="mt-3 leading-relaxed text-gray-600">
+                  A versao antiga tentava cruzar respostas com perfil de partidos. Isso nao era forte o suficiente para um site de fiscalizacao. Agora o caminho e mais honesto: voce escolhe prioridade, recorte e profundidade, e o site aponta onde fiscalizar com dados auditaveis.
+                </p>
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                  <Button size="lg" className="bg-blue-600 hover:bg-blue-700" onClick={() => setStep('quiz')}>
+                    Montar meu roteiro
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                  <Button asChild size="lg" variant="outline">
+                    <Link to="/rankings">Ir direto aos rankings</Link>
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {[
+                  'Nao usa mapa ideologico por partido.',
+                  'Nao diz quem vota como voce sem fonte nominal.',
+                  'Nao transforma ausencia de dado em conclusao.',
+                  'Aponta paginas com metodo, fonte e aviso de limite.',
+                ].map((item) => (
+                  <div key={item} className="flex items-start gap-3 rounded-lg border border-green-100 bg-green-50 p-4 text-sm text-green-900">
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-700" />
+                    <span>{item}</span>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm text-gray-500">Afinidade</p>
-                    <p className={`text-2xl font-bold ${politician.affinity > 70 ? 'text-green-500' : politician.affinity < 30 ? 'text-red-500' : 'text-yellow-500'}`}>
-                      {politician.affinity || 0}%
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      ({politician.votosConsiderados} votos analisados)
-                    </p>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {step === 'quiz' && question && (
+            <motion.div
+              key={question.id}
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="mx-auto max-w-3xl rounded-lg border border-gray-200 bg-white p-7 shadow-sm"
+            >
+              <div className="mb-6">
+                <div className="mb-2 flex items-center justify-between gap-4 text-sm font-bold text-gray-500">
+                  <span>Pergunta {currentQuestion + 1} de {civicAuditQuestions.length}</span>
+                  <span>{Math.round(progress)}%</span>
+                </div>
+                <div className="h-2 rounded-full bg-gray-100">
+                  <div className="h-2 rounded-full bg-blue-600 transition-all" style={{ width: `${progress}%` }} />
+                </div>
+              </div>
+
+              <h2 className="text-2xl font-black text-gray-950">{question.label}</h2>
+              <div className="mt-6 grid gap-3">
+                {question.options.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => handleAnswer(question.id, option.value)}
+                    className="group rounded-lg border border-gray-200 bg-white p-4 text-left transition hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="font-black text-gray-950">{option.label}</p>
+                        <p className="mt-1 text-sm text-gray-600">{option.description}</p>
+                      </div>
+                      <ArrowRight className="h-5 w-5 shrink-0 text-gray-400 transition group-hover:text-blue-600" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {step === 'results' && plan && (
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-6">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-sm font-black uppercase text-blue-700">Resultado educativo</p>
+                    <h2 className="mt-2 text-3xl font-black text-gray-950">{plan.title}</h2>
+                    <p className="mt-3 max-w-3xl leading-relaxed text-gray-700">{plan.summary}</p>
                   </div>
-                </motion.div>
-              ))}
-            </div>
-            <div className="text-center mt-10">
-              <Button size="lg" variant="outline" className="border-yellow-400 text-yellow-500 hover:bg-yellow-400 hover:text-black font-bold" onClick={restartQuiz}>
-                <RefreshCw className="mr-2 w-5 h-5" /> Refazer o Quiz
-              </Button>
-            </div>
-          </motion.div>
-        )}
+                  <Button variant="outline" onClick={restart} className="bg-white">
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Refazer
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-3 lg:grid-cols-3">
+                {plan.warnings.map((warning) => (
+                  <div key={warning} className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-900">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span>{warning}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid gap-4">
+                {plan.steps.map((item, index) => (
+                  <div key={item.id} className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+                    <div className="grid gap-4 lg:grid-cols-[72px_1fr_190px] lg:items-start">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-50 text-xl font-black text-blue-700">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-600">
+                            {confidenceLabels[item.confidenceLevel] || 'Confianca limitada'}
+                          </span>
+                          <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-bold text-green-700">
+                            {item.sourceName}
+                          </span>
+                        </div>
+                        <h3 className="text-xl font-black text-gray-950">{item.title}</h3>
+                        <p className="mt-2 leading-relaxed text-gray-600">{item.description}</p>
+                        <details className="mt-3 text-sm text-gray-500">
+                          <summary className="cursor-pointer font-bold text-gray-700">Como este passo foi escolhido</summary>
+                          <p className="mt-1">{item.calculationMethod}</p>
+                        </details>
+                      </div>
+                      <Button asChild className="bg-blue-600 hover:bg-blue-700">
+                        <Link to={item.link}>
+                          {item.linkLabel}
+                          <ExternalLink className="ml-2 h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </main>
       </div>
     </>
   );

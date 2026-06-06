@@ -1,10 +1,11 @@
+import React from 'react';
+import { ScanEye } from 'lucide-react';
+
 const OncaLogo = ({ className = '' }) => {
   return (
-    <img
-      src="/mbl-icon.png"
-      alt="Logo do MBL"
-      className={className}
-    />
+    <div className={`flex items-center justify-center ${className}`}>
+      <ScanEye className="w-full h-full" />
+    </div>
   );
 };
 
