@@ -15,12 +15,13 @@ import {
 } from '@/services/camara';
 import { buildDeputadoMetrics } from '@/lib/legislative-logic';
 import { buildSensitiveCeapSummary } from '@/services/benefits';
+import { polishText } from '@/lib/display-text';
 import { filterAndSortByName } from '@/lib/search';
 
 const confidenceLabels = {
-  high: 'Confianca alta',
-  medium: 'Confianca media',
-  low: 'Confianca baixa',
+  high: 'Confiança alta',
+  medium: 'Confiança média',
+  low: 'Confiança baixa',
 };
 
 const formatCurrency = (value) =>
@@ -38,15 +39,15 @@ const formatPercent = (value) =>
 const MetricRow = ({ metric }) => (
   <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
     <div className="flex items-center justify-between gap-3">
-      <p className="text-sm font-semibold text-gray-700">{metric.title}</p>
+      <p className="text-sm font-semibold text-gray-700">{polishText(metric.title)}</p>
       <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
-        {confidenceLabels[metric.confidenceLevel] || metric.status || 'Indisponivel'}
+        {confidenceLabels[metric.confidenceLevel] || polishText(metric.status) || 'Indisponível'}
       </span>
     </div>
     <p className="text-2xl font-black text-gray-900 mt-1">
-      {metric.value === null || metric.value === undefined ? 'Dado indisponivel' : metric.unit === 'BRL' ? formatCurrency(metric.value) : metric.value}
+      {metric.value === null || metric.value === undefined ? 'Dado indisponível' : metric.unit === 'BRL' ? formatCurrency(metric.value) : metric.value}
     </p>
-    <p className="text-xs text-gray-500 mt-1">{metric.explanationForCitizen}</p>
+    <p className="text-xs text-gray-500 mt-1">{polishText(metric.explanationForCitizen)}</p>
   </div>
 );
 
@@ -60,16 +61,16 @@ const SensitiveCeapComparisonBlock = ({ summary }) => {
       <div className="flex items-start gap-3 mb-4">
         <SearchCheck className="w-5 h-5 text-blue-700 mt-0.5" />
         <div>
-          <h3 className="font-bold text-blue-950">Recorte de despesas sensiveis</h3>
+          <h3 className="font-bold text-blue-950">Recorte de despesas sensíveis</h3>
           <p className="text-xs text-blue-800">
-            Categorias de maior interesse publico na CEAP. Nao indica irregularidade sozinho.
+            Categorias de maior interesse público na CEAP. Não indica irregularidade sozinho.
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2 mb-3">
         <div className="rounded-lg bg-white p-3 border border-blue-100">
-          <p className="text-[11px] font-bold uppercase text-gray-500">Total sensivel</p>
+          <p className="text-[11px] font-bold uppercase text-gray-500">Total sensível</p>
           <p className="font-black text-gray-900">{formatCurrency(summary.sensitiveTotal)}</p>
         </div>
         <div className="rounded-lg bg-white p-3 border border-blue-100">
@@ -84,7 +85,7 @@ const SensitiveCeapComparisonBlock = ({ summary }) => {
             <div key={category.id} className="rounded-lg bg-white p-3 border border-blue-100">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-bold text-gray-900">{category.shortLabel}</p>
+                  <p className="text-sm font-bold text-gray-900">{polishText(category.shortLabel)}</p>
                   <p className="text-xs text-gray-500">{category.count} registro{category.count === 1 ? '' : 's'}</p>
                 </div>
                 <div className="text-right">
@@ -97,14 +98,14 @@ const SensitiveCeapComparisonBlock = ({ summary }) => {
         </div>
       ) : (
         <div className="rounded-lg bg-white p-3 border border-blue-100 text-sm text-gray-600">
-          Nenhuma categoria sensivel apareceu nas despesas retornadas para este ano.
+          Nenhuma categoria sensível apareceu nas despesas retornadas para este ano.
         </div>
       )}
 
       <details className="mt-3 text-xs text-blue-900">
-        <summary className="cursor-pointer font-bold">Fonte e metodo</summary>
-        <p className="mt-1 leading-relaxed">{summary.calculationMethod}</p>
-        <p className="mt-1">Fonte: {summary.sourceName}</p>
+        <summary className="cursor-pointer font-bold">Fonte e método</summary>
+        <p className="mt-1 leading-relaxed">{polishText(summary.calculationMethod)}</p>
+        <p className="mt-1">Fonte: {polishText(summary.sourceName)}</p>
       </details>
     </div>
   );
@@ -173,7 +174,7 @@ const DeputySearchPicker = ({ label, deputados, selectedDeputado, onSelect }) =>
         )}
       </div>
       <p className="mt-2 text-xs text-gray-500">
-        Busca por nome na lista oficial carregada da Camara.
+        Busca por nome na lista oficial carregada da Câmara.
       </p>
     </div>
   );
@@ -282,7 +283,7 @@ const ComparisonPage = () => {
         setDeputadosList(data || []);
       } catch (error) {
         console.error('Erro ao carregar lista de deputados:', error);
-        toast({ title: 'Erro', description: 'Nao foi possivel carregar a lista de deputados.', variant: 'destructive' });
+        toast({ title: 'Erro', description: 'Não foi possível carregar a lista de deputados.', variant: 'destructive' });
       } finally {
         setLoadingList(false);
       }
@@ -304,10 +305,10 @@ const ComparisonPage = () => {
           <div className="text-center">
             <Scale className="w-12 h-12 mx-auto text-blue-600 mb-4" />
             <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-2">
-              Compare indicadores auditaveis
+              Compare indicadores auditáveis
             </h1>
             <p className="text-sm text-gray-600 max-w-2xl mx-auto">
-              Compare dados oficiais e limitados lado a lado. O FISCALIZA nao usa score geral nem transforma ausencia de registro em falta.
+              Compare dados oficiais e limitados lado a lado. O FISCALIZA não usa score geral nem transforma ausência de registro em falta.
             </p>
           </div>
         </div>
@@ -323,7 +324,7 @@ const ComparisonPage = () => {
         </div>
 
         <div className="mb-8 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
-          A comparacao mostra dados oficiais lado a lado para facilitar perguntas melhores: quanto foi declarado, em quais categorias e quais dados ficaram indisponiveis. Ela nao define melhor ou pior parlamentar automaticamente.
+          A comparação mostra dados oficiais lado a lado para facilitar perguntas melhores: quanto foi declarado, em quais categorias e quais dados ficaram indisponíveis. Ela não define melhor ou pior parlamentar automaticamente.
         </div>
 
         {loadingList ? (

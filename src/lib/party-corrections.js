@@ -1,9 +1,9 @@
 const PARTY_CORRECTIONS_BY_CAMARA_ID = {
   '204536': {
     party: 'MISSÃO',
-    sourceName: 'Camara dos Deputados - Perfil parlamentar',
+    sourceName: 'Câmara dos Deputados - Perfil parlamentar',
     sourceUrl: 'https://www.camara.leg.br/deputados/204536',
-    reason: 'A pagina oficial da Camara informa Kim Kataguiri como MISSÃO-SP.',
+    reason: 'A página oficial da Câmara informa Kim Kataguiri como MISSÃO-SP.',
   },
 };
 

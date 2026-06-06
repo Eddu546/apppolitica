@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { AlertCircle, FileText, Loader2, Search, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { polishText } from '@/lib/display-text';
 import { searchMajorAgendas } from '@/lib/major-agendas';
 
 const fallbackPhoto = 'https://www.camara.leg.br/tema/assets/images/foto-deputado-sem-foto.png';
@@ -18,24 +19,24 @@ const AgendaResultCard = ({ agenda, index }) => (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
       <div>
         <div className="flex flex-wrap gap-2">
-          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">{agenda.tema}</span>
+          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">{polishText(agenda.tema)}</span>
           <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-600">{agenda.tipo}</span>
           <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-bold text-green-700">
             Voto nominal: {agenda.houve_voto_nominal}
           </span>
         </div>
-        <h3 className="mt-3 text-xl font-black text-gray-950">{agenda.apelido_pauta}</h3>
+        <h3 className="mt-3 text-xl font-black text-gray-950">{polishText(agenda.apelido_pauta)}</h3>
         <p className="mt-1 text-sm font-bold text-blue-700">{agenda.numero_proposicao.join(' / ')}</p>
-        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-gray-700">{agenda.resumo_curto}</p>
+        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-gray-700">{polishText(agenda.resumo_curto)}</p>
         {agenda.observacao_voto && (
-          <p className="mt-2 text-xs leading-relaxed text-gray-500">{agenda.observacao_voto}</p>
+          <p className="mt-2 text-xs leading-relaxed text-gray-500">{polishText(agenda.observacao_voto)}</p>
         )}
       </div>
       <div className="rounded-lg border border-yellow-100 bg-yellow-50 p-3 text-xs leading-relaxed text-yellow-900 lg:max-w-xs">
         <ShieldCheck className="mb-1 h-4 w-4" />
-        Esta e uma pauta cadastrada pelo FISCALIZA para ajudar a traducao. O voto individual aparece apenas nos perfis quando a Camara retorna registro nominal.
+        Esta é uma pauta cadastrada pelo FISCALIZA para ajudar a tradução. O voto individual aparece apenas nos perfis quando a Câmara retorna registro nominal.
         <Link to={`/pautas?busca=${encodeURIComponent(agenda.apelido_pauta)}`} className="mt-2 block font-bold text-blue-700 hover:underline">
-          Ver na pagina de pautas
+          Ver na página de pautas
         </Link>
       </div>
     </div>
@@ -139,7 +140,7 @@ const SearchResultsPage = () => {
         const [deputados, senadores] = await Promise.all([deputadosReq, senadoresReq]);
         setPoliticianResults([...senadores, ...deputados]);
       } catch (err) {
-        console.error('Erro critico na busca:', err);
+        console.error('Erro crítico na busca:', err);
         setError(true);
       } finally {
         setLoading(false);
@@ -176,7 +177,7 @@ const SearchResultsPage = () => {
               <AlertCircle className="h-6 w-6 shrink-0" />
               <div>
                 <p className="font-bold">Erro ao buscar dados</p>
-                <p className="text-sm">Nao foi possivel conectar com os servicos publicos no momento. Tente novamente.</p>
+                <p className="text-sm">Não foi possível conectar com os serviços públicos no momento. Tente novamente.</p>
               </div>
             </div>
           ) : hasResults ? (
@@ -199,7 +200,7 @@ const SearchResultsPage = () => {
                 <section>
                   <div className="mb-3 flex items-center gap-2">
                     <Search className="h-5 w-5 text-blue-600" />
-                    <h2 className="text-xl font-black text-gray-950">Politicos encontrados</h2>
+                    <h2 className="text-xl font-black text-gray-950">Políticos encontrados</h2>
                   </div>
                   <div className="space-y-4">
                     {politicianResults.map((politico, index) => (
@@ -213,7 +214,7 @@ const SearchResultsPage = () => {
             <div className="rounded-lg border border-dashed border-gray-200 bg-white py-20 text-center">
               <Search className="mx-auto mb-4 h-12 w-12 text-gray-300" />
               <h3 className="text-lg font-semibold text-gray-900">Nenhum resultado encontrado</h3>
-              <p className="mx-auto mt-1 max-w-md text-gray-500">Tente buscar por nome, partido, pauta popular ou numero oficial como PL 2630/2020.</p>
+              <p className="mx-auto mt-1 max-w-md text-gray-500">Tente buscar por nome, partido, pauta popular ou número oficial como PL 2630/2020.</p>
             </div>
           )}
         </div>

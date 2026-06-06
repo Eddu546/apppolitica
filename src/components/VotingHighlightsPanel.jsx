@@ -2,6 +2,7 @@ import React from 'react';
 import { AlertTriangle, ExternalLink, ListChecks } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { polishText } from '@/lib/display-text';
 import { describeVotingForCitizen } from '@/lib/vote-highlights';
 
 const voteClass = (vote = '') => {
@@ -14,7 +15,7 @@ const voteClass = (vote = '') => {
 };
 
 const formatDate = (value) => {
-  if (!value) return 'Data nao informada';
+  if (!value) return 'Data não informada';
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return String(value).slice(0, 10);
   return parsed.toLocaleDateString('pt-BR');
@@ -31,9 +32,9 @@ const VoteSummary = ({ summary }) => (
   <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
     {[
       ['Sim', summary?.sim],
-      ['Nao', summary?.nao],
-      ['Abstencao', summary?.abstencao],
-      ['Obstrucao', summary?.obstrucao],
+      ['Não', summary?.nao],
+      ['Abstenção', summary?.abstencao],
+      ['Obstrução', summary?.obstrucao],
       ['Outros', summary?.outros],
     ].map(([label, value]) => (
       <div key={label} className="rounded-lg border border-gray-100 bg-gray-50 p-3">
@@ -56,14 +57,14 @@ const VotingHighlightsPanel = ({ votacoes = [], ano, metric }) => {
             <div>
               <div className="mb-2 flex items-center gap-2 text-sm font-bold text-blue-800">
                 <ListChecks className="h-5 w-5" />
-                Votacoes nominais relevantes em {ano}
+                Votações nominais relevantes em {ano}
               </div>
               <p className="max-w-4xl text-sm leading-relaxed text-blue-950">
-                Este painel mostra um recorte de votacoes nominais abertas que geram mais interesse publico, como seguranca, penas, economia, direitos, saude, educacao, meio ambiente e temas institucionais. Ele nao tenta listar todas as votacoes do ano.
+                Este painel mostra um recorte de votações nominais abertas que geram mais interesse público, como segurança, penas, economia, direitos, saúde, educação, meio ambiente e temas institucionais. Ele não tenta listar todas as votações do ano.
               </p>
             </div>
             <span className="rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-bold text-blue-700">
-              Fonte: Dados Abertos da Camara
+              Fonte: Dados Abertos da Câmara
             </span>
           </div>
         </CardContent>
@@ -74,7 +75,7 @@ const VotingHighlightsPanel = ({ votacoes = [], ano, metric }) => {
           <div className="flex items-start gap-3 text-sm text-yellow-950">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
             <p>
-              A propria documentacao da Camara informa que o endpoint de votos por votacao nao lista deputados ausentes. Por isso, esta tela mostra apenas voto registrado; ela nao transforma ausencia de registro em falta.
+              A própria documentação da Câmara informa que o endpoint de votos por votação não lista deputados ausentes. Por isso, esta tela mostra apenas voto registrado; ela não transforma ausência de registro em falta.
             </p>
           </div>
         </CardContent>
@@ -86,18 +87,18 @@ const VotingHighlightsPanel = ({ votacoes = [], ano, metric }) => {
         <Card>
           <CardContent className="p-8 text-center">
             <ListChecks className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-            <h2 className="text-lg font-black text-gray-900">Nenhuma votacao relevante com voto registrado foi encontrada</h2>
+            <h2 className="text-lg font-black text-gray-900">Nenhuma votação relevante com voto registrado foi encontrada</h2>
             <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-gray-600">
-              Isso pode significar que a API nao retornou votos para o recorte selecionado, que o parlamentar nao aparece nos registros consultados ou que as votacoes mais relevantes do periodo nao tinham voto nominal aberto disponivel.
+              Isso pode significar que a API não retornou votos para o recorte selecionado, que o parlamentar não aparece nos registros consultados ou que as votações mais relevantes do período não tinham voto nominal aberto disponível.
             </p>
             <div className="mx-auto mt-5 grid max-w-4xl gap-3 text-left text-xs text-gray-600 sm:grid-cols-5">
               <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
-                <p className="font-bold text-gray-900">Plenario retornado</p>
-                <p>{formatNumber(meta.totalPlenaryCandidates)} votacoes candidatas</p>
+                <p className="font-bold text-gray-900">Plenário retornado</p>
+                <p>{formatNumber(meta.totalPlenaryCandidates)} votações candidatas</p>
               </div>
               <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
                 <p className="font-bold text-gray-900">Base geral retornada</p>
-                <p>{formatNumber(meta.totalGeneralCandidates)} votacoes candidatas</p>
+                <p>{formatNumber(meta.totalGeneralCandidates)} votações candidatas</p>
               </div>
               <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
                 <p className="font-bold text-gray-900">Candidatas checadas</p>
@@ -105,10 +106,10 @@ const VotingHighlightsPanel = ({ votacoes = [], ano, metric }) => {
               </div>
               <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
                 <p className="font-bold text-gray-900">Arquivo anual</p>
-                <p>{meta.annualVotingFileUsed ? 'Usado' : 'Nao usado'}; votos do deputado: {formatNumber(meta.annualVoteRecordsForDeputy)}</p>
+                <p>{meta.annualVotingFileUsed ? 'Usado' : 'Não usado'}; votos do deputado: {formatNumber(meta.annualVoteRecordsForDeputy)}</p>
               </div>
               <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
-                <p className="font-bold text-gray-900">Proposicoes ligadas</p>
+                <p className="font-bold text-gray-900">Proposições ligadas</p>
                 <p>{formatNumber(meta.votingObjectRelations)} objetos; {formatNumber(meta.affectedPropositionRelations)} afetadas</p>
               </div>
             </div>
@@ -117,7 +118,7 @@ const VotingHighlightsPanel = ({ votacoes = [], ano, metric }) => {
       ) : (
         <div className="grid gap-4">
           {votacoes.map((votacao) => {
-            const vote = votacao.deputyVote?.vote || 'Voto nao informado';
+            const vote = votacao.deputyVote?.vote || 'Voto não informado';
             const totals = votacao.totals || {};
             const topics = votacao.topics || [];
             const citizenDescription = describeVotingForCitizen(votacao);
@@ -136,7 +137,7 @@ const VotingHighlightsPanel = ({ votacoes = [], ano, metric }) => {
                         </span>
                         {topics.map((topic) => (
                           <span key={topic.id} className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                            {topic.label}
+                            {polishText(topic.label)}
                           </span>
                         ))}
                         {citizenDescription.matter?.label && (
@@ -152,30 +153,30 @@ const VotingHighlightsPanel = ({ votacoes = [], ano, metric }) => {
                       </div>
 
                       <div>
-                        <p className="text-xs font-black uppercase text-gray-500">{citizenDescription.subtitle}</p>
-                        <h3 className="mt-1 text-lg font-black text-gray-950">{citizenDescription.title}</h3>
+                        <p className="text-xs font-black uppercase text-gray-500">{polishText(citizenDescription.subtitle)}</p>
+                        <h3 className="mt-1 text-lg font-black text-gray-950">{polishText(citizenDescription.title)}</h3>
                         {citizenDescription.agenda && (
                           <div className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-sm leading-relaxed text-indigo-950">
-                            <p className="font-bold">Resumo da pauta: {citizenDescription.agenda.resumo_curto}</p>
+                            <p className="font-bold">Resumo da pauta: {polishText(citizenDescription.agenda.resumo_curto)}</p>
                             <p className="mt-1">
                               Voto nominal na pauta: {citizenDescription.agenda.houve_voto_nominal}.
-                              {citizenDescription.agenda.observacao_voto ? ` ${citizenDescription.agenda.observacao_voto}` : ''}
+                              {citizenDescription.agenda.observacao_voto ? ` ${polishText(citizenDescription.agenda.observacao_voto)}` : ''}
                             </p>
                           </div>
                         )}
                         {citizenDescription.rawDescription && (
                           <p className="mt-2 text-sm leading-relaxed text-gray-700">
-                            Descricao oficial: {citizenDescription.rawDescription}
+                            Descrição oficial: {polishText(citizenDescription.rawDescription)}
                           </p>
                         )}
                         {votacao.resultado && (
-                          <p className="mt-2 text-sm leading-relaxed text-gray-600">{votacao.resultado}</p>
+                          <p className="mt-2 text-sm leading-relaxed text-gray-600">{polishText(votacao.resultado)}</p>
                         )}
                       </div>
 
                       {citizenDescription.warnings.length > 0 && (
                         <div className="rounded-lg border border-yellow-100 bg-yellow-50 p-3 text-xs leading-relaxed text-yellow-900">
-                          {citizenDescription.warnings.join(' ')}
+                          {polishText(citizenDescription.warnings.join(' '))}
                         </div>
                       )}
 
@@ -185,14 +186,14 @@ const VotingHighlightsPanel = ({ votacoes = [], ano, metric }) => {
                             <div>
                               <p className="text-xs font-black uppercase text-slate-500">
                                 {citizenDescription.matterConfidence === 'possible_official_object'
-                                  ? 'Possivel objeto oficial da votacao'
+                                  ? 'Possível objeto oficial da votação'
                                   : citizenDescription.matterConfidence === 'officially_affected'
-                                    ? 'Proposicao afetada pela votacao'
-                                    : 'Materia identificada no texto'}
+                                    ? 'Proposição afetada pela votação'
+                                    : 'Matéria identificada no texto'}
                               </p>
-                              <p className="mt-1 font-black text-slate-950">{citizenDescription.matter.label || 'Materia sem numero informado'}</p>
+                              <p className="mt-1 font-black text-slate-950">{polishText(citizenDescription.matter.label || 'Matéria sem número informado')}</p>
                               {citizenDescription.matter.ementa && (
-                                <p className="mt-1 text-slate-700">{citizenDescription.matter.ementa}</p>
+                                <p className="mt-1 text-slate-700">{polishText(citizenDescription.matter.ementa)}</p>
                               )}
                             </div>
                             {propositionUrl(citizenDescription.matter) && (
@@ -202,7 +203,7 @@ const VotingHighlightsPanel = ({ votacoes = [], ano, metric }) => {
                                 rel="noopener noreferrer"
                                 className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-blue-700 hover:underline"
                               >
-                                Ver proposicao <ExternalLink className="h-3 w-3" />
+                                Ver proposição <ExternalLink className="h-3 w-3" />
                               </a>
                             )}
                           </div>
@@ -212,14 +213,14 @@ const VotingHighlightsPanel = ({ votacoes = [], ano, metric }) => {
                       {citizenDescription.affectedPropositions.length > 1 && (
                         <details className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-xs text-gray-600">
                           <summary className="cursor-pointer font-bold text-gray-800">
-                            Outras proposicoes relacionadas ({citizenDescription.affectedPropositions.length - 1})
+                            Outras proposições relacionadas ({citizenDescription.affectedPropositions.length - 1})
                           </summary>
                           <div className="mt-2 grid gap-2">
                             {citizenDescription.affectedPropositions.slice(1, 6).map((item, itemIndex) => (
                               <div key={`${item.id || item.label}-${itemIndex}`} className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                                 <span>
-                                  <strong>{item.label || 'Proposicao sem numero'}</strong>
-                                  {item.effect ? ` - ${item.effect}` : ''}
+                                  <strong>{polishText(item.label || 'Proposição sem número')}</strong>
+                                  {item.effect ? ` - ${polishText(item.effect)}` : ''}
                                 </span>
                                 {propositionUrl(item) && (
                                   <a href={propositionUrl(item)} target="_blank" rel="noopener noreferrer" className="font-bold text-blue-700 hover:underline">
@@ -235,16 +236,16 @@ const VotingHighlightsPanel = ({ votacoes = [], ano, metric }) => {
                       {(totals.sim || totals.nao || totals.abstencao || totals.obstrucao || totals.total) && (
                         <div className="flex flex-wrap gap-2 text-xs text-gray-600">
                           <span className="rounded bg-gray-50 px-2 py-1">Sim: {formatNumber(totals.sim)}</span>
-                          <span className="rounded bg-gray-50 px-2 py-1">Nao: {formatNumber(totals.nao)}</span>
-                          <span className="rounded bg-gray-50 px-2 py-1">Abstencao: {formatNumber(totals.abstencao)}</span>
-                          <span className="rounded bg-gray-50 px-2 py-1">Obstrucao: {formatNumber(totals.obstrucao)}</span>
+                          <span className="rounded bg-gray-50 px-2 py-1">Não: {formatNumber(totals.nao)}</span>
+                          <span className="rounded bg-gray-50 px-2 py-1">Abstenção: {formatNumber(totals.abstencao)}</span>
+                          <span className="rounded bg-gray-50 px-2 py-1">Obstrução: {formatNumber(totals.obstrucao)}</span>
                         </div>
                       )}
 
                       <details className="text-xs text-gray-500">
                         <summary className="cursor-pointer font-bold text-gray-700">Por que apareceu neste recorte?</summary>
                         <p className="mt-1">
-                          Pontuacao de relevancia: {formatNumber(votacao.relevanceScore)}. O recorte considera tema, Plenario, volume de votos, margem apertada e tipo da materia quando essas informacoes aparecem nos dados oficiais.
+                          Pontuação de relevância: {formatNumber(votacao.relevanceScore)}. O recorte considera tema, Plenário, volume de votos, margem apertada e tipo da matéria quando essas informações aparecem nos dados oficiais.
                         </p>
                       </details>
                     </div>

@@ -36,7 +36,7 @@ const SenatorProfilePage = () => {
       setLoading(true);
       try {
         const dados = await getSenadorDetalhes(id);
-        if (!dados) throw new Error('Senador nao encontrado');
+        if (!dados) throw new Error('Senador não encontrado');
         setSenador(dados);
 
         const ano = parseInt(anoSelecionado, 10);
@@ -60,7 +60,7 @@ const SenatorProfilePage = () => {
         setMetricasValidadas(listaValidadas || []);
       } catch (error) {
         console.warn('Erro ao carregar senador:', error);
-        toast({ title: 'Erro', description: 'Perfil indisponivel no momento.', variant: 'destructive' });
+        toast({ title: 'Erro', description: 'Perfil indisponível no momento.', variant: 'destructive' });
       } finally {
         setLoading(false);
       }
@@ -79,7 +79,7 @@ const SenatorProfilePage = () => {
   }
 
   if (!senador) {
-    return <div className="min-h-screen flex items-center justify-center bg-gray-50">Senador nao encontrado.</div>;
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50">Senador não encontrado.</div>;
   }
 
   const info = senador.IdentificacaoParlamentar;
@@ -93,7 +93,7 @@ const SenatorProfilePage = () => {
       <div className="bg-white border-b shadow-sm pt-8 pb-10">
         <div className="max-w-5xl mx-auto px-4">
           <Link to="/senadores" className="text-gray-500 hover:text-blue-600 inline-flex items-center text-sm mb-8 font-medium transition-colors">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para Lista
+            <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para lista
           </Link>
 
           <div className="flex flex-col md:flex-row items-center gap-8">
@@ -115,7 +115,7 @@ const SenatorProfilePage = () => {
                 </span>
               </div>
               <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
-                Indicadores do Senado sao exibidos com cautela. O FISCALIZA nao usa score geral nem transforma registros incompletos em acusacoes de falta.
+                Indicadores do Senado são exibidos com cautela. O FISCALIZA não usa score geral nem transforma registros incompletos em acusações de falta.
               </div>
             </div>
 
@@ -152,7 +152,7 @@ const SenatorProfilePage = () => {
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div className="p-3 bg-gray-50 rounded-lg">
-                    <span className="block text-gray-500 text-xs uppercase font-bold">Inicio</span>
+                    <span className="block text-gray-500 text-xs uppercase font-bold">Início</span>
                     <span className="font-medium text-gray-900">{mandato.PrimeiraLegislaturaDoMandato?.DataInicio || '-'}</span>
                   </div>
                   <div className="p-3 bg-gray-50 rounded-lg">
@@ -161,7 +161,7 @@ const SenatorProfilePage = () => {
                   </div>
                   <div className="p-3 bg-gray-50 rounded-lg sm:col-span-2">
                     <span className="block text-gray-500 text-xs uppercase font-bold">Contato</span>
-                    <span className="font-medium text-blue-600 break-all">{info.EmailParlamentar || 'Nao informado'}</span>
+                    <span className="font-medium text-blue-600 break-all">{info.EmailParlamentar || 'Não informado'}</span>
                   </div>
                 </div>
               </CardContent>
@@ -171,13 +171,13 @@ const SenatorProfilePage = () => {
           <div className="space-y-6">
             <Card>
               <CardContent className="p-6">
-                <h4 className="font-bold text-gray-900 mb-2">Transparencia ativa</h4>
+                <h4 className="font-bold text-gray-900 mb-2">Transparência ativa</h4>
                 <p className="text-sm text-gray-500 mb-4">
-                  Para despesas e detalhes que ainda nao estao normalizados no site, consulte a fonte oficial.
+                  Para despesas e detalhes que ainda não estão normalizados no site, consulte a fonte oficial.
                 </p>
                 <a href="https://www6g.senado.leg.br/transparencia/sen/" target="_blank" rel="noopener noreferrer">
                   <Button className="w-full bg-blue-600 hover:bg-blue-700">
-                    Portal da Transparencia
+                    Portal da Transparência
                   </Button>
                 </a>
               </CardContent>

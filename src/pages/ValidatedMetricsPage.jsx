@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { CheckCircle2, ExternalLink, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { polishText } from '@/lib/display-text';
 import { fetchValidatedMetrics, isCorrectionsDatabaseConfigured } from '@/services/corrections';
 
 const ValidatedMetricsPage = () => {
@@ -18,11 +19,11 @@ const ValidatedMetricsPage = () => {
         if (result.ok) {
           setItems(result.data);
         } else {
-          setMessage('O banco de dados ainda nao esta configurado neste ambiente.');
+          setMessage('O banco de dados ainda não está configurado neste ambiente.');
         }
       } catch (error) {
-        console.error('Erro ao carregar metricas validadas:', error);
-        setMessage('Nao foi possivel carregar os dados validados agora.');
+        console.error('Erro ao carregar métricas validadas:', error);
+        setMessage('Não foi possível carregar os dados validados agora.');
       } finally {
         setLoading(false);
       }
@@ -42,13 +43,13 @@ const ValidatedMetricsPage = () => {
             <div>
               <h1 className="text-3xl font-extrabold text-gray-900">Dados validados</h1>
               <p className="mt-2 text-gray-600 max-w-3xl">
-                Correcoes revisadas manualmente pelo FISCALIZA. Estes registros mostram a fonte usada e nao alteram automaticamente os dados oficiais da Camara ou do Senado.
+                Correções revisadas manualmente pelo FISCALIZA. Estes registros mostram a fonte usada e não alteram automaticamente os dados oficiais da Câmara ou do Senado.
               </p>
             </div>
           </div>
           {!isCorrectionsDatabaseConfigured && (
             <div className="mt-5 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
-              Supabase ainda nao configurado neste ambiente.
+              Supabase ainda não configurado neste ambiente.
             </div>
           )}
         </div>
@@ -82,10 +83,10 @@ const ValidatedMetricsPage = () => {
                     </span>
                   </div>
                   <h2 className="text-xl font-bold text-gray-900">{item.parlamentar}</h2>
-                  <p className="mt-3 text-xs font-bold uppercase text-gray-500">{item.metrica}</p>
-                  <p className="text-2xl font-extrabold text-gray-900">{item.valor}</p>
+                  <p className="mt-3 text-xs font-bold uppercase text-gray-500">{polishText(item.metrica)}</p>
+                  <p className="text-2xl font-extrabold text-gray-900">{polishText(item.valor)}</p>
                   {item.observacao_publica && (
-                    <p className="mt-3 text-sm text-gray-600">{item.observacao_publica}</p>
+                    <p className="mt-3 text-sm text-gray-600">{polishText(item.observacao_publica)}</p>
                   )}
                   <a
                     className="mt-4 inline-flex items-center text-sm font-semibold text-blue-600 hover:underline break-all"
@@ -101,7 +102,7 @@ const ValidatedMetricsPage = () => {
 
             {items.length === 0 && !message && (
               <div className="md:col-span-2 rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center text-gray-500">
-                Ainda nao ha metricas validadas publicadas.
+                Ainda não há métricas validadas publicadas.
               </div>
             )}
           </div>

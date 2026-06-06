@@ -1,6 +1,7 @@
 import React from 'react';
 import { AlertTriangle, ExternalLink, SearchCheck } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { polishText } from '@/lib/display-text';
 import { formatCurrency } from '@/lib/legislative-logic';
 
 const formatPercent = (value) =>
@@ -10,7 +11,7 @@ const formatPercent = (value) =>
   })}%`;
 
 const formatDate = (date) => {
-  if (!date) return 'Nao informado';
+  if (!date) return 'Não informado';
   return new Date(date).toLocaleString('pt-BR', {
     dateStyle: 'short',
     timeStyle: 'short',
@@ -31,16 +32,16 @@ const SensitiveCeapPanel = ({ summary }) => {
               <SearchCheck className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-black text-slate-950">Despesas sensiveis da CEAP</h3>
+              <h3 className="font-black text-slate-950">Despesas sensíveis da CEAP</h3>
               <p className="text-sm text-slate-600 leading-relaxed">
-                Categorias que costumam merecer leitura mais cuidadosa. Este painel nao indica irregularidade sozinho.
+                Categorias que costumam merecer leitura mais cuidadosa. Este painel não indica irregularidade sozinho.
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2 min-w-[260px]">
             <div className="rounded-lg bg-slate-50 p-3">
-              <p className="text-xs font-bold uppercase text-slate-500">Total sensivel</p>
+              <p className="text-xs font-bold uppercase text-slate-500">Total sensível</p>
               <p className="text-lg font-black text-slate-950">{formatCurrency(summary.sensitiveTotal)}</p>
             </div>
             <div className="rounded-lg bg-slate-50 p-3">
@@ -52,9 +53,9 @@ const SensitiveCeapPanel = ({ summary }) => {
 
         {!hasCategories ? (
           <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-            <p className="font-bold text-green-950">Nenhuma categoria sensivel encontrada</p>
+            <p className="font-bold text-green-950">Nenhuma categoria sensível encontrada</p>
             <p className="text-sm text-green-800">
-              Nas despesas retornadas pela Camara para este ano, nao apareceu gasto nas categorias monitoradas por este painel.
+              Nas despesas retornadas pela Câmara para este ano, não apareceu gasto nas categorias monitoradas por este painel.
             </p>
           </div>
         ) : (
@@ -63,8 +64,8 @@ const SensitiveCeapPanel = ({ summary }) => {
               <div key={category.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-bold text-slate-950">{category.label}</p>
-                    <p className="mt-1 text-sm text-slate-600">{category.explanation}</p>
+                    <p className="font-bold text-slate-950">{polishText(category.label)}</p>
+                    <p className="mt-1 text-sm text-slate-600">{polishText(category.explanation)}</p>
                   </div>
                   <span className="rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700 whitespace-nowrap">
                     {category.count} registro{category.count === 1 ? '' : 's'}
@@ -77,7 +78,7 @@ const SensitiveCeapPanel = ({ summary }) => {
                     <p className="text-lg font-black text-slate-950">{formatCurrency(category.amount)}</p>
                   </div>
                   <div className="rounded-lg bg-white p-3">
-                    <p className="text-xs font-bold uppercase text-slate-500">Participacao</p>
+                    <p className="text-xs font-bold uppercase text-slate-500">Participação</p>
                     <p className="text-lg font-black text-slate-950">{formatPercent(category.shareOfTotal)}</p>
                   </div>
                 </div>
@@ -106,7 +107,7 @@ const SensitiveCeapPanel = ({ summary }) => {
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
               <div className="space-y-1">
                 {summary.warnings.map((warning) => (
-                  <p key={warning}>{warning}</p>
+                  <p key={warning}>{polishText(warning)}</p>
                 ))}
               </div>
             </div>
@@ -114,11 +115,11 @@ const SensitiveCeapPanel = ({ summary }) => {
         )}
 
         <div className="mt-4 border-t border-slate-100 pt-3 text-[11px] text-slate-500 space-y-1">
-          <p><strong>Fonte:</strong> {summary.sourceName}</p>
+          <p><strong>Fonte:</strong> {polishText(summary.sourceName)}</p>
           <p><strong>Consultado em:</strong> {formatDate(summary.fetchedAt)}</p>
           <details>
             <summary className="cursor-pointer font-bold text-slate-600">Como foi calculado</summary>
-            <p className="mt-1 leading-relaxed">{summary.calculationMethod}</p>
+            <p className="mt-1 leading-relaxed">{polishText(summary.calculationMethod)}</p>
           </details>
           {summary.sourceUrl && (
             <a

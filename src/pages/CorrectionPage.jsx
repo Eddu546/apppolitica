@@ -31,14 +31,14 @@ const CorrectionPage = () => {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setStatus({ type: 'loading', message: 'Enviando para revisao...' });
+    setStatus({ type: 'loading', message: 'Enviando para revisão...' });
 
     try {
       const result = await submitCorrection(form);
       if (result.ok) {
         setStatus({
           type: 'success',
-          message: 'Correcao enviada para a fila de revisao. Obrigado por ajudar a melhorar os dados.',
+          message: 'Correção enviada para a fila de revisão. Obrigado por ajudar a melhorar os dados.',
         });
         setForm(initialForm);
         return;
@@ -47,13 +47,13 @@ const CorrectionPage = () => {
       window.location.href = buildCorrectionMailto(form);
       setStatus({
         type: 'fallback',
-        message: 'Banco gratuito ainda nao configurado. Abrimos seu aplicativo de e-mail como alternativa.',
+        message: 'Banco gratuito ainda não configurado. Abrimos seu aplicativo de e-mail como alternativa.',
       });
     } catch (error) {
-      console.error('Erro ao enviar correcao:', error);
+      console.error('Erro ao enviar correção:', error);
       setStatus({
         type: 'error',
-        message: 'Nao foi possivel enviar ao banco. Confira a configuracao do Supabase ou use o e-mail.',
+        message: 'Não foi possível enviar ao banco. Confira a configuração do Supabase ou use o e-mail.',
       });
     }
   };
@@ -61,8 +61,8 @@ const CorrectionPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Helmet>
-        <title>Enviar correcao - FISCALIZA</title>
-        <meta name="description" content="Envie uma correcao ou evidencia para revisao manual dos indicadores do FISCALIZA." />
+        <title>Enviar correção - FISCALIZA</title>
+        <meta name="description" content="Envie uma correção ou evidência para revisão manual dos indicadores do FISCALIZA." />
       </Helmet>
 
       <div className="bg-white border-b">
@@ -70,12 +70,12 @@ const CorrectionPage = () => {
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700 mb-4">
               <ShieldCheck className="w-4 h-4" />
-              Canal gratuito de verificacao
+              Canal gratuito de verificação
             </div>
-            <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-3">Enviar correcao ou evidencia</h1>
+            <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-3">Enviar correção ou evidência</h1>
             <p className="text-gray-600 leading-relaxed">
-              Use este formulario para apontar dados oficiais, documentos ou fontes que ajudem a revisar um indicador.
-              O envio abre um e-mail e nao altera o site automaticamente.
+              Use este formulário para apontar dados oficiais, documentos ou fontes que ajudem a revisar um indicador.
+              O envio abre um e-mail e não altera o site automaticamente.
             </p>
           </div>
         </div>
@@ -113,7 +113,7 @@ const CorrectionPage = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <label className="space-y-2 text-sm font-semibold text-gray-700">
-                    Metrica
+                    Métrica
                     <input required value={form.metrica} onChange={(e) => updateField('metrica', e.target.value)} placeholder="Ex.: despesas, relatorias" className="w-full rounded-lg border border-gray-300 px-3 py-2 font-normal" />
                   </label>
                   <label className="space-y-2 text-sm font-semibold text-gray-700">
@@ -127,18 +127,18 @@ const CorrectionPage = () => {
                 </div>
 
                 <label className="space-y-2 text-sm font-semibold text-gray-700 block">
-                  Fonte ou evidencia
-                  <input required value={form.fonte} onChange={(e) => updateField('fonte', e.target.value)} placeholder="Cole link oficial, documento ou explicacao da fonte" className="w-full rounded-lg border border-gray-300 px-3 py-2 font-normal" />
+                  Fonte ou evidência
+                  <input required value={form.fonte} onChange={(e) => updateField('fonte', e.target.value)} placeholder="Cole link oficial, documento ou explicação da fonte" className="w-full rounded-lg border border-gray-300 px-3 py-2 font-normal" />
                 </label>
 
                 <label className="space-y-2 text-sm font-semibold text-gray-700 block">
-                  Observacoes
+                  Observações
                   <textarea value={form.observacoes} onChange={(e) => updateField('observacoes', e.target.value)} rows={5} className="w-full rounded-lg border border-gray-300 px-3 py-2 font-normal" />
                 </label>
 
                 <Button type="submit" className="w-full md:w-auto">
                   <Send className="w-4 h-4 mr-2" />
-                  {isCorrectionsDatabaseConfigured ? 'Enviar para revisao' : 'Abrir e-mail de envio'}
+                  {isCorrectionsDatabaseConfigured ? 'Enviar para revisão' : 'Abrir e-mail de envio'}
                 </Button>
 
                 {status.message && (
@@ -161,10 +161,10 @@ const CorrectionPage = () => {
               <Mail className="w-8 h-8 text-blue-600" />
               <h2 className="font-bold text-gray-900">Sem custo mensal</h2>
               <p className="text-sm text-gray-600 leading-relaxed">
-                Esta pagina salva no Supabase Free quando as variaveis de ambiente existem. Sem configuracao, ela usa e-mail como alternativa.
+                Esta página salva no Supabase Free quando as variáveis de ambiente existem. Sem configuração, ela usa e-mail como alternativa.
               </p>
               <p className="text-sm text-gray-600 leading-relaxed">
-                Dados enviados por parlamentares, assessorias ou cidadaos devem ser analisados manualmente antes de aparecerem no site.
+                Dados enviados por parlamentares, assessorias ou cidadãos devem ser analisados manualmente antes de aparecerem no site.
               </p>
             </CardContent>
           </Card>

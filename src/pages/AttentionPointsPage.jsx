@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, ExternalLink, Filter, Loader2, Search, ShieldAlert } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { polishText } from '@/lib/display-text';
 import { formatCurrency } from '@/lib/legislative-logic';
 import {
   buildSpendingAttentionPoints,
@@ -32,14 +33,14 @@ const getDeputyPhotoUrl = (id) =>
 const AttentionPointCard = ({ point }) => (
   <Card>
     <CardContent className="p-5">
-      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className={`rounded-full border px-2 py-0.5 text-xs font-bold ${levelStyles[point.level] || levelStyles.medium}`}>
               {point.level === 'high' ? 'Atenção alta' : 'Atenção média'}
             </span>
             <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-600">
-              {typeLabels[point.type] || point.title}
+              {typeLabels[point.type] || polishText(point.title)}
             </span>
             <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">{point.year}</span>
           </div>
@@ -57,25 +58,27 @@ const AttentionPointCard = ({ point }) => (
               <Link to={`/politico/${point.deputyId}`} className="text-xl font-extrabold text-gray-900 hover:text-blue-600">
                 {point.deputyName}
               </Link>
-              <p className="text-sm text-gray-500">{point.party || '-'} / {point.state || '-'}</p>
+              <p className="text-sm text-gray-500">
+                {point.party || '-'} / {point.state || '-'}
+              </p>
             </div>
           </div>
 
-          <p className="text-sm text-gray-700 leading-relaxed max-w-3xl">{point.explanation}</p>
+          <p className="max-w-3xl text-sm leading-relaxed text-gray-700">{polishText(point.explanation)}</p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="rounded-lg bg-gray-50 border border-gray-100 p-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
               <p className="text-xs font-bold uppercase text-gray-500">Valor relacionado</p>
               <p className="font-black text-gray-900">{formatCurrency(point.amount || 0)}</p>
             </div>
-            <div className="rounded-lg bg-gray-50 border border-gray-100 p-3">
+            <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
               <p className="text-xs font-bold uppercase text-gray-500">Total anual</p>
               <p className="font-black text-gray-900">{formatCurrency(point.total || point.amount || 0)}</p>
             </div>
-            <div className="rounded-lg bg-gray-50 border border-gray-100 p-3">
-              <p className="text-xs font-bold uppercase text-gray-500">Referencia</p>
+            <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+              <p className="text-xs font-bold uppercase text-gray-500">Referência</p>
               <p className="font-black text-gray-900">
-                {point.categoryLabel || point.supplier || (point.average ? `Media: ${formatCurrency(point.average)}` : 'Base sincronizada')}
+                {polishText(point.categoryLabel || point.supplier || (point.average ? `Média: ${formatCurrency(point.average)}` : 'Base sincronizada'))}
               </p>
               {point.recordCount !== undefined && (
                 <p className="mt-1 text-xs text-gray-500">
@@ -87,7 +90,7 @@ const AttentionPointCard = ({ point }) => (
 
           <details className="text-xs text-gray-500">
             <summary className="cursor-pointer font-bold text-gray-700">Como foi calculado</summary>
-            <p className="mt-1">{point.calculationMethod}</p>
+            <p className="mt-1">{polishText(point.calculationMethod)}</p>
           </details>
         </div>
 
@@ -98,7 +101,7 @@ const AttentionPointCard = ({ point }) => (
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:underline"
           >
-            Fonte <ExternalLink className="w-4 h-4" />
+            Fonte <ExternalLink className="h-4 w-4" />
           </a>
         )}
       </div>
@@ -164,10 +167,10 @@ const AttentionPointsPage = () => {
         <title>Pontos de Atenção - FISCALIZA</title>
       </Helmet>
 
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div className="border-b bg-white">
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
           <div className="flex items-start gap-4">
-            <ShieldAlert className="w-10 h-10 text-yellow-600 mt-1" />
+            <ShieldAlert className="mt-1 h-10 w-10 text-yellow-600" />
             <div>
               <h1 className="text-3xl font-extrabold text-gray-900">Pontos de atenção</h1>
               <p className="mt-2 max-w-3xl text-gray-600">
@@ -184,14 +187,14 @@ const AttentionPointsPage = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <Card className={`mb-6 ${baseStatus.status === 'available' ? 'border-green-200 bg-green-50' : 'border-yellow-200 bg-yellow-50'}`}>
           <CardContent className="p-5">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-yellow-700 mt-0.5" />
+              <AlertTriangle className="mt-0.5 h-5 w-5 text-yellow-700" />
               <div>
-                <h2 className="font-bold text-gray-900">{baseStatus.label}</h2>
-                <p className="text-sm text-gray-700">{baseStatus.message}</p>
+                <h2 className="font-bold text-gray-900">{polishText(baseStatus.label)}</h2>
+                <p className="text-sm text-gray-700">{polishText(baseStatus.message)}</p>
                 <p className="mt-1 text-xs text-gray-600">
                   Mesmo com base completa, estes pontos são indicadores de triagem, não conclusões sobre conduta.
                 </p>
@@ -202,9 +205,9 @@ const AttentionPointsPage = () => {
 
         <Card className="mb-6">
           <CardContent className="p-4">
-            <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-7">
               <div className="relative md:col-span-2">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
@@ -214,22 +217,34 @@ const AttentionPointsPage = () => {
               </div>
               <select value={stateFilter} onChange={(event) => setStateFilter(event.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
                 <option value="">Todos os estados</option>
-                {states.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+                {states.map((uf) => (
+                  <option key={uf} value={uf}>
+                    {uf}
+                  </option>
+                ))}
               </select>
               <select value={partyFilter} onChange={(event) => setPartyFilter(event.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
                 <option value="">Todos os partidos</option>
-                {parties.map((party) => <option key={party} value={party}>{party}</option>)}
+                {parties.map((party) => (
+                  <option key={party} value={party}>
+                    {party}
+                  </option>
+                ))}
               </select>
               <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
                 <option value="">Todos os tipos</option>
                 {Object.entries(typeLabels).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
                 ))}
               </select>
               <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                <option value="">Todas categorias</option>
+                <option value="">Todas as categorias</option>
                 {SENSITIVE_CEAP_CATEGORIES.map((category) => (
-                  <option key={category.id} value={category.id}>{category.shortLabel}</option>
+                  <option key={category.id} value={category.id}>
+                    {polishText(category.shortLabel)}
+                  </option>
                 ))}
               </select>
               <select value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
@@ -257,14 +272,14 @@ const AttentionPointsPage = () => {
                   setLevelFilter('');
                 }}
               >
-                <Filter className="w-4 h-4 mr-1" />
+                <Filter className="mr-1 h-4 w-4" />
                 Limpar filtros
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
           <Card>
             <CardContent className="p-4">
               <p className="text-xs font-bold uppercase text-gray-500">Pontos encontrados</p>
@@ -292,8 +307,8 @@ const AttentionPointsPage = () => {
         )}
 
         {loading ? (
-          <div className="py-16 flex justify-center">
-            <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+          <div className="flex justify-center py-16">
+            <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
           </div>
         ) : (
           <div className="space-y-4">

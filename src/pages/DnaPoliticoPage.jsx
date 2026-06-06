@@ -13,11 +13,12 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { buildCivicAuditPlan, civicAuditQuestions } from '@/lib/civic-audit-plan';
+import { polishText } from '@/lib/display-text';
 
 const confidenceLabels = {
-  high: 'Alta confianca',
-  medium: 'Confianca limitada',
-  low: 'Baixa confianca',
+  high: 'Alta confiança',
+  medium: 'Confiança limitada',
+  low: 'Baixa confiança',
 };
 
 const DnaPoliticoPage = () => {
@@ -50,10 +51,10 @@ const DnaPoliticoPage = () => {
   return (
     <>
       <Helmet>
-        <title>Meu Roteiro Cidadao - FISCALIZA</title>
+        <title>Meu Roteiro Cidadão - FISCALIZA</title>
         <meta
           name="description"
-          content="Monte um roteiro de fiscalizacao cidada sem afinidade inventada, com links para indicadores auditaveis e fontes oficiais."
+          content="Monte um roteiro de fiscalização cidadã sem afinidade inventada, com links para indicadores auditáveis e fontes oficiais."
         />
       </Helmet>
 
@@ -66,9 +67,9 @@ const DnaPoliticoPage = () => {
                   <ShieldCheck className="h-4 w-4" />
                   Sem match inventado
                 </div>
-                <h1 className="text-4xl font-black tracking-tight text-gray-950">Meu roteiro cidadao</h1>
+                <h1 className="text-4xl font-black tracking-tight text-gray-950">Meu roteiro cidadão</h1>
                 <p className="mt-4 text-lg leading-relaxed text-gray-600">
-                  Responda tres perguntas e receba um caminho de fiscalizacao baseado no que o FISCALIZA consegue mostrar com fonte. A ferramenta nao mede ideologia, nao recomenda parlamentar e nao calcula afinidade politica.
+                  Responda três perguntas e receba um caminho de fiscalização baseado no que o FISCALIZA consegue mostrar com fonte. A ferramenta não mede ideologia, não recomenda parlamentar e não calcula afinidade política.
                 </p>
               </div>
 
@@ -78,7 +79,7 @@ const DnaPoliticoPage = () => {
                   Regra de confiabilidade
                 </div>
                 <p>
-                  O resultado e um roteiro educativo. Toda conclusao sobre parlamentar deve vir dos cards com fonte oficial, data de consulta e metodo de calculo.
+                  O resultado é um roteiro educativo. Toda conclusão sobre parlamentar deve vir dos cards com fonte oficial, data de consulta e método de cálculo.
                 </p>
               </div>
             </div>
@@ -90,9 +91,9 @@ const DnaPoliticoPage = () => {
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="grid gap-6 lg:grid-cols-[1fr_360px]">
               <div className="rounded-lg border border-gray-200 bg-white p-7 shadow-sm">
                 <ClipboardList className="h-12 w-12 text-blue-600" />
-                <h2 className="mt-5 text-2xl font-black text-gray-950">Troque opiniao solta por investigacao verificavel</h2>
+                <h2 className="mt-5 text-2xl font-black text-gray-950">Troque opinião solta por investigação verificável</h2>
                 <p className="mt-3 leading-relaxed text-gray-600">
-                  A versao antiga tentava cruzar respostas com perfil de partidos. Isso nao era forte o suficiente para um site de fiscalizacao. Agora o caminho e mais honesto: voce escolhe prioridade, recorte e profundidade, e o site aponta onde fiscalizar com dados auditaveis.
+                  A versão antiga tentava cruzar respostas com perfil de partidos. Isso não era forte o suficiente para um site de fiscalização. Agora o caminho é mais honesto: você escolhe prioridade, recorte e profundidade, e o site aponta onde fiscalizar com dados auditáveis.
                 </p>
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                   <Button size="lg" className="bg-blue-600 hover:bg-blue-700" onClick={() => setStep('quiz')}>
@@ -107,10 +108,10 @@ const DnaPoliticoPage = () => {
 
               <div className="space-y-3">
                 {[
-                  'Nao usa mapa ideologico por partido.',
-                  'Nao diz quem vota como voce sem fonte nominal.',
-                  'Nao transforma ausencia de dado em conclusao.',
-                  'Aponta paginas com metodo, fonte e aviso de limite.',
+                  'Não usa mapa ideológico por partido.',
+                  'Não diz quem vota como você sem fonte nominal.',
+                  'Não transforma ausência de dado em conclusão.',
+                  'Aponta páginas com método, fonte e aviso de limite.',
                 ].map((item) => (
                   <div key={item} className="flex items-start gap-3 rounded-lg border border-green-100 bg-green-50 p-4 text-sm text-green-900">
                     <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-700" />
@@ -138,7 +139,7 @@ const DnaPoliticoPage = () => {
                 </div>
               </div>
 
-              <h2 className="text-2xl font-black text-gray-950">{question.label}</h2>
+              <h2 className="text-2xl font-black text-gray-950">{polishText(question.label)}</h2>
               <div className="mt-6 grid gap-3">
                 {question.options.map((option) => (
                   <button
@@ -149,8 +150,8 @@ const DnaPoliticoPage = () => {
                   >
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <p className="font-black text-gray-950">{option.label}</p>
-                        <p className="mt-1 text-sm text-gray-600">{option.description}</p>
+                        <p className="font-black text-gray-950">{polishText(option.label)}</p>
+                        <p className="mt-1 text-sm text-gray-600">{polishText(option.description)}</p>
                       </div>
                       <ArrowRight className="h-5 w-5 shrink-0 text-gray-400 transition group-hover:text-blue-600" />
                     </div>
@@ -166,8 +167,8 @@ const DnaPoliticoPage = () => {
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <p className="text-sm font-black uppercase text-blue-700">Resultado educativo</p>
-                    <h2 className="mt-2 text-3xl font-black text-gray-950">{plan.title}</h2>
-                    <p className="mt-3 max-w-3xl leading-relaxed text-gray-700">{plan.summary}</p>
+                    <h2 className="mt-2 text-3xl font-black text-gray-950">{polishText(plan.title)}</h2>
+                    <p className="mt-3 max-w-3xl leading-relaxed text-gray-700">{polishText(plan.summary)}</p>
                   </div>
                   <Button variant="outline" onClick={restart} className="bg-white">
                     <RotateCcw className="mr-2 h-4 w-4" />
@@ -181,7 +182,7 @@ const DnaPoliticoPage = () => {
                   <div key={warning} className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-900">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                      <span>{warning}</span>
+                      <span>{polishText(warning)}</span>
                     </div>
                   </div>
                 ))}
@@ -197,22 +198,22 @@ const DnaPoliticoPage = () => {
                       <div>
                         <div className="mb-2 flex flex-wrap items-center gap-2">
                           <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-600">
-                            {confidenceLabels[item.confidenceLevel] || 'Confianca limitada'}
+                            {confidenceLabels[item.confidenceLevel] || 'Confiança limitada'}
                           </span>
                           <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-bold text-green-700">
-                            {item.sourceName}
+                            {polishText(item.sourceName)}
                           </span>
                         </div>
-                        <h3 className="text-xl font-black text-gray-950">{item.title}</h3>
-                        <p className="mt-2 leading-relaxed text-gray-600">{item.description}</p>
+                        <h3 className="text-xl font-black text-gray-950">{polishText(item.title)}</h3>
+                        <p className="mt-2 leading-relaxed text-gray-600">{polishText(item.description)}</p>
                         <details className="mt-3 text-sm text-gray-500">
                           <summary className="cursor-pointer font-bold text-gray-700">Como este passo foi escolhido</summary>
-                          <p className="mt-1">{item.calculationMethod}</p>
+                          <p className="mt-1">{polishText(item.calculationMethod)}</p>
                         </details>
                       </div>
                       <Button asChild className="bg-blue-600 hover:bg-blue-700">
                         <Link to={item.link}>
-                          {item.linkLabel}
+                          {polishText(item.linkLabel)}
                           <ExternalLink className="ml-2 h-4 w-4" />
                         </Link>
                       </Button>

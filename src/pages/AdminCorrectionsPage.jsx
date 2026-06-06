@@ -22,7 +22,7 @@ import {
 
 const statusLabels = {
   pendente: 'Pendente',
-  em_analise: 'Em analise',
+  em_analise: 'Em análise',
   validado: 'Validado',
   recusado: 'Recusado',
 };
@@ -52,8 +52,8 @@ const AdminCorrectionsPage = () => {
         setMessage('Configure o Supabase antes de carregar a fila.');
       }
     } catch (error) {
-      console.error('Erro ao carregar correcoes:', error);
-      setMessage('Nao foi possivel ler a tabela correcoes. Confira as politicas RLS no Supabase.');
+      console.error('Erro ao carregar correções:', error);
+      setMessage('Não foi possível ler a tabela correções. Confira as políticas RLS no Supabase.');
     } finally {
       setLoading(false);
     }
@@ -80,7 +80,7 @@ const AdminCorrectionsPage = () => {
       setMessage('');
     } catch (error) {
       console.error('Erro no login admin:', error);
-      setMessage('Login falhou. Confira e-mail, senha e configuracao do Supabase Auth.');
+      setMessage('Login falhou. Confira e-mail, senha e configuração do Supabase Auth.');
     } finally {
       setLoading(false);
     }
@@ -104,7 +104,7 @@ const AdminCorrectionsPage = () => {
       setMessage('Status atualizado.');
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
-      setMessage('Nao foi possivel atualizar. Confira as politicas RLS.');
+      setMessage('Não foi possível atualizar. Confira as políticas RLS.');
     }
   };
 
@@ -113,10 +113,10 @@ const AdminCorrectionsPage = () => {
     try {
       await publishValidatedMetric(item);
       await loadCorrections();
-      setMessage('Dado validado e publicado na area publica.');
+      setMessage('Dado validado e publicado na área pública.');
     } catch (error) {
-      console.error('Erro ao publicar metrica validada:', error);
-      setMessage('Nao foi possivel publicar. Confira se a tabela metricas_validadas e as politicas RLS foram criadas.');
+      console.error('Erro ao publicar métrica validada:', error);
+      setMessage('Não foi possível publicar. Confira se a tabela metricas_validadas e as políticas RLS foram criadas.');
     }
   };
 
@@ -132,13 +132,13 @@ const AdminCorrectionsPage = () => {
     setSyncProgress({ current: 0, total: 0, success: 0, failed: 0 });
 
     try {
-      setSyncMessage('Testando permissao de escrita no Supabase...');
+      setSyncMessage('Testando permissão de escrita no Supabase...');
       await testAnnualSummaryWriteAccess();
-      setSyncMessage('Permissao confirmada. Buscando lista oficial de deputados...');
+      setSyncMessage('Permissão confirmada. Buscando lista oficial de deputados...');
 
       const deputados = await getAllDeputadosList();
       setSyncProgress({ current: 0, total: deputados.length, success: 0, failed: 0 });
-      setSyncMessage('Sincronizacao em andamento. Pode levar alguns minutos.');
+      setSyncMessage('Sincronização em andamento. Pode levar alguns minutos.');
 
       let success = 0;
       let failed = 0;
@@ -161,14 +161,14 @@ const AdminCorrectionsPage = () => {
         await new Promise((resolve) => setTimeout(resolve, 150));
       }
 
-      setSyncMessage(`Sincronizacao concluida: ${success} resumos salvos, ${failed} falhas.`);
+      setSyncMessage(`Sincronização concluída: ${success} resumos salvos, ${failed} falhas.`);
       if (firstError) {
         setSyncError(`Primeiro erro encontrado: ${firstError}`);
       }
     } catch (error) {
-      console.error('Erro na sincronizacao anual:', error);
+      console.error('Erro na sincronização anual:', error);
       setSyncMessage('');
-      setSyncError(error.message || 'Nao foi possivel iniciar a sincronizacao. Confira Supabase, login admin e APIs oficiais.');
+      setSyncError(error.message || 'Não foi possível iniciar a sincronização. Confira Supabase, login admin e APIs oficiais.');
     } finally {
       setSyncing(false);
     }
@@ -181,9 +181,9 @@ const AdminCorrectionsPage = () => {
         <Card className="w-full max-w-md">
           <CardContent className="p-6">
             <ShieldCheck className="w-10 h-10 text-blue-600 mb-4" />
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Painel de revisao</h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Painel de revisão</h1>
             <p className="text-sm text-gray-600 mb-5">
-              Entre com um usuario criado no Supabase Auth para revisar correcoes enviadas.
+              Entre com um usuário criado no Supabase Auth para revisar correções enviadas.
             </p>
             <form onSubmit={login} className="space-y-4">
               <input
@@ -213,13 +213,13 @@ const AdminCorrectionsPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-16">
-      <Helmet><title>Admin Correcoes - FISCALIZA</title></Helmet>
+      <Helmet><title>Admin Correções - FISCALIZA</title></Helmet>
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-extrabold text-gray-900">Fila de correcoes</h1>
-              <p className="text-gray-600 mt-1">Revise evidencias antes de publicar qualquer dado validado.</p>
+              <h1 className="text-3xl font-extrabold text-gray-900">Fila de correções</h1>
+              <p className="text-gray-600 mt-1">Revise evidências antes de publicar qualquer dado validado.</p>
             </div>
             <Button variant="outline" onClick={loadCorrections}>
               <RefreshCw className="w-4 h-4 mr-2" />
@@ -233,12 +233,12 @@ const AdminCorrectionsPage = () => {
 
           {!isCorrectionsDatabaseConfigured && (
             <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
-              Supabase nao configurado no .env.local.
+              Supabase não configurado no .env.local.
             </div>
           )}
           <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800 flex gap-3">
             <ShieldCheck className="w-5 h-5 shrink-0" />
-            Ao validar, o dado e publicado na pagina publica de metricas validadas, sempre com a fonte informada.
+            Ao validar, o dado é publicado na página pública de métricas validadas, sempre com a fonte informada.
           </div>
         </div>
       </div>
@@ -266,10 +266,10 @@ const AdminCorrectionsPage = () => {
                 <div>
                   <h2 className="text-lg font-bold text-gray-900">Cache gratuito de rankings</h2>
                   <p className="text-sm text-gray-600 max-w-3xl">
-                    Sincroniza despesas anuais da Camara para o Supabase. Depois disso, os perfis conseguem mostrar media nacional, media estadual e ranking com base real.
+                    Sincroniza despesas anuais da Câmara para o Supabase. Depois disso, os perfis conseguem mostrar média nacional, média estadual e ranking com base real.
                   </p>
                   <p className="mt-2 text-xs text-gray-500">
-                    E-mail logado no painel: <strong>{adminEmail || 'nao identificado'}</strong>
+                    E-mail logado no painel: <strong>{adminEmail || 'não identificado'}</strong>
                   </p>
                 </div>
               </div>
@@ -331,7 +331,7 @@ const AdminCorrectionsPage = () => {
                         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-600">{item.cargo}</span>
                         <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">{statusLabels[item.status]}</span>
                       </div>
-                      <p className="text-sm text-gray-700"><strong>Metrica:</strong> {item.metrica} / {item.ano}</p>
+                      <p className="text-sm text-gray-700"><strong>Métrica:</strong> {item.metrica} / {item.ano}</p>
                       <p className="text-sm text-gray-700"><strong>Valor informado:</strong> {item.valor_informado}</p>
                       <p className="text-sm text-gray-700"><strong>Contato:</strong> {item.nome} ({item.email})</p>
                       <a className="text-sm text-blue-600 hover:underline break-all" href={item.fonte_url} target="_blank" rel="noopener noreferrer">
@@ -340,7 +340,7 @@ const AdminCorrectionsPage = () => {
                       {item.observacoes && <p className="text-sm text-gray-600">{item.observacoes}</p>}
                     </div>
                     <div className="flex flex-wrap gap-2 lg:justify-end">
-                      <Button size="sm" variant="outline" onClick={() => changeStatus(item, 'em_analise')}>Em analise</Button>
+                      <Button size="sm" variant="outline" onClick={() => changeStatus(item, 'em_analise')}>Em análise</Button>
                       <Button
                         size="sm"
                         className="bg-green-600 hover:bg-green-700"
@@ -358,7 +358,7 @@ const AdminCorrectionsPage = () => {
             ))}
             {filteredItems.length === 0 && (
               <div className="rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center text-gray-500">
-                Nenhuma correcao encontrada para este filtro.
+                Nenhuma correção encontrada para este filtro.
               </div>
             )}
           </div>

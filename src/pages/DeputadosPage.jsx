@@ -1,10 +1,12 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, Loader2 } from 'lucide-react';
+import { Loader2, MapPin, Search, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { getAllDeputadosList } from '@/services/camara';
 import { filterAndSortByName } from '@/lib/search';
+
+const estados = ['SP', 'RJ', 'MG', 'BA', 'RS', 'PR', 'PE', 'CE', 'PA', 'MA', 'SC', 'GO', 'PB', 'ES', 'AM', 'RN', 'AL', 'PI', 'MT', 'DF', 'MS', 'SE', 'RO', 'TO', 'AC', 'AP', 'RR'];
 
 const DeputadosPage = () => {
   const { toast } = useToast();
@@ -19,18 +21,16 @@ const DeputadosPage = () => {
     const fetchDeputados = async () => {
       setLoading(true);
       try {
-        // Carrega apenas a lista básica para ser instantâneo
         const allDeputadosRaw = await getAllDeputadosList();
-        if (!allDeputadosRaw || allDeputadosRaw.length === 0) throw new Error("Lista vazia");
-        
-        // Ordena alfabeticamente por padrão na listagem geral
-        setDeputados(allDeputadosRaw.sort((a, b) => a.nome.localeCompare(b.nome)));
+        if (!allDeputadosRaw || allDeputadosRaw.length === 0) throw new Error('Lista vazia');
+
+        setDeputados(allDeputadosRaw.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')));
       } catch (error) {
-        console.error("Erro lista deputados:", error);
+        console.error('Erro lista deputados:', error);
         toast({
-          title: "Erro de Conexão",
-          description: "Não foi possível carregar a lista. Tente recarregar.",
-          variant: "destructive"
+          title: 'Erro de conexão',
+          description: 'Não foi possível carregar a lista. Tente recarregar.',
+          variant: 'destructive',
         });
       } finally {
         setLoading(false);
@@ -40,22 +40,22 @@ const DeputadosPage = () => {
     fetchDeputados();
   }, [toast]);
 
-  const estados = ['SP', 'RJ', 'MG', 'BA', 'RS', 'PR', 'PE', 'CE', 'PA', 'MA', 'SC', 'GO', 'PB', 'ES', 'AM', 'RN', 'AL', 'PI', 'MT', 'DF', 'MS', 'SE', 'RO', 'TO', 'AC', 'AP', 'RR'];
-  const partidos = [...new Set(deputados.map(d => d.siglaPartido))].sort().filter(Boolean);
+  const partidos = useMemo(
+    () => [...new Set(deputados.map((deputado) => deputado.siglaPartido))].sort().filter(Boolean),
+    [deputados]
+  );
 
   const filteredDeputados = useMemo(() => {
     const filteredByName = filterAndSortByName(deputados, searchTerm, (deputado) => deputado.nome || '');
 
-    return filteredByName.filter(deputado => {
+    return filteredByName.filter((deputado) => {
       const matchesState = selectedState === '' || deputado.siglaUf === selectedState;
       const matchesParty = selectedParty === '' || deputado.siglaPartido === selectedParty;
       return matchesState && matchesParty;
     });
   }, [deputados, searchTerm, selectedParty, selectedState]);
 
-  const handleClick = (id) => {
-    navigate(`/politico/${id}`);
-  };
+  const hasActiveFilter = searchTerm || selectedState || selectedParty;
 
   return (
     <>
@@ -65,88 +65,105 @@ const DeputadosPage = () => {
 
       <div className="min-h-screen bg-gray-50">
         <div className="bg-white shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-            <div className="text-center max-w-3xl mx-auto">
-              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-                Deputados Federais
-              </h1>
+          <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-3xl text-center">
+              <h1 className="mb-4 text-3xl font-bold text-gray-900 md:text-4xl">Deputados Federais</h1>
               <p className="text-lg text-gray-600">
-                Lista de deputados em exercicio retornada pela Camara dos Deputados.
+                Lista de deputados em exercício retornada pela Câmara dos Deputados.
               </p>
+              <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-800">
+                <ShieldCheck className="h-4 w-4" />
+                Fonte oficial: Dados Abertos da Câmara
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white border-b sticky top-20 z-40 shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="sticky top-20 z-40 border-b bg-white shadow-sm">
+          <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
               <div className="relative md:col-span-2">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Buscar por nome..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(event) => setSearchTerm(event.target.value)}
                   autoComplete="off"
                   autoCorrect="off"
                   spellCheck={false}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none"
+                  className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 outline-none focus:ring-2 focus:ring-blue-600"
                 />
               </div>
 
-              <select value={selectedState} onChange={(e) => setSelectedState(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none bg-white">
-                <option value="">Todos os Estados</option>
-                {estados.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+              <select value={selectedState} onChange={(event) => setSelectedState(event.target.value)} className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 outline-none">
+                <option value="">Todos os estados</option>
+                {estados.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
               </select>
 
-              <select value={selectedParty} onChange={(e) => setSelectedParty(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none bg-white">
-                <option value="">Todos os Partidos</option>
-                {partidos.map(p => <option key={p} value={p}>{p}</option>)}
+              <select value={selectedParty} onChange={(event) => setSelectedParty(event.target.value)} className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 outline-none">
+                <option value="">Todos os partidos</option>
+                {partidos.map((partido) => <option key={partido} value={partido}>{partido}</option>)}
               </select>
             </div>
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="mb-6 flex justify-between items-center">
-            <p className="text-gray-600">Mostrando <strong>{filteredDeputados.length}</strong> parlamentares</p>
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-gray-600">
+                Mostrando <strong>{filteredDeputados.length}</strong> de <strong>{deputados.length}</strong> deputados carregados.
+              </p>
+              {hasActiveFilter && (
+                <p className="mt-1 text-sm text-gray-500">Filtros ativos: busca, estado ou partido.</p>
+              )}
+            </div>
           </div>
 
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20">
-                <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-                <p className="text-gray-500">Carregando lista de deputados...</p>
+              <Loader2 className="mb-4 h-12 w-12 animate-spin text-blue-600" />
+              <p className="text-gray-500">Carregando lista de deputados...</p>
             </div>
           ) : (
-            <div key={`${searchTerm}-${selectedState}-${selectedParty}`} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div key={`${searchTerm}-${selectedState}-${selectedParty}`} className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
               {filteredDeputados.map((deputado) => (
-                <div
-                    key={deputado.id} 
-                    className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden group cursor-pointer hover:shadow-lg hover:border-blue-200 transition-all" 
-                    onClick={() => handleClick(deputado.id)}
+                <button
+                  key={deputado.id}
+                  type="button"
+                  className="group overflow-hidden rounded-xl border border-gray-100 bg-white text-left shadow-sm transition-all hover:border-blue-200 hover:shadow-lg"
+                  onClick={() => navigate(`/politico/${deputado.id}`)}
                 >
-                  <div className="p-6 flex items-center space-x-4">
-                    <div className="relative">
-                        <img src={deputado.urlFoto} alt={deputado.nome} className="w-20 h-20 rounded-full object-cover border-4 border-gray-50 group-hover:border-blue-50 bg-gray-200" onError={(e) => e.target.src='https://www.camara.leg.br/tema/assets/images/foto-deputado-sem-foto.png'}/>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-bold text-gray-900 truncate group-hover:text-blue-600">{deputado.nome}</h3>
-                      <div className="flex items-center mt-1 space-x-2">
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-100">{deputado.siglaPartido}</span>
-                        <span className="text-sm text-gray-500 flex items-center"><MapPin className="w-3 h-3 mr-1" />{deputado.siglaUf}</span>
+                  <div className="flex items-center space-x-4 p-6">
+                    <img
+                      src={deputado.urlFoto}
+                      alt={deputado.nome}
+                      className="h-20 w-20 rounded-full border-4 border-gray-50 bg-gray-200 object-cover group-hover:border-blue-50"
+                      onError={(event) => {
+                        event.currentTarget.src = 'https://www.camara.leg.br/tema/assets/images/foto-deputado-sem-foto.png';
+                      }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <h3 className="truncate text-lg font-bold text-gray-900 group-hover:text-blue-600">{deputado.nome}</h3>
+                      <div className="mt-1 flex items-center space-x-2">
+                        <span className="rounded-full border border-blue-100 bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700">{deputado.siglaPartido}</span>
+                        <span className="flex items-center text-sm text-gray-500"><MapPin className="mr-1 h-3 w-3" />{deputado.siglaUf}</span>
                       </div>
                       <div className="mt-3">
-                        <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Ver dados, fontes e indicadores</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Ver dados, fontes e indicadores</span>
                       </div>
                     </div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
-          
+
           {!loading && filteredDeputados.length === 0 && (
-             <div className="text-center py-20 text-gray-500">Nenhum deputado encontrado.</div>
+            <div className="rounded-xl border border-dashed border-gray-200 bg-white py-20 text-center text-gray-500">
+              Nenhum deputado encontrado com estes filtros.
+            </div>
           )}
         </div>
       </div>

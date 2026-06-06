@@ -48,6 +48,7 @@ function App() {
             <Route path="/alertas" element={<AttentionPointsPage />} />
             <Route path="/pautas" element={<MajorAgendasPage />} />
             <Route path="/pauta/:slug" element={<AgendaDetailPage />} />
+            <Route path="/pautas/:slug" element={<AgendaDetailPage />} />
             <Route path="/pautas/proposicao/:slug" element={<AgendaDetailPage />} />
             <Route path="/pautas/:type/:number/:year" element={<AgendaDetailPage />} />
             <Route path="/meu-roteiro" element={<DnaPoliticoPage />} />

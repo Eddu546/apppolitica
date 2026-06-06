@@ -11,6 +11,7 @@ import {
   getVotacaoVotos,
 } from '@/services/camara';
 import { findMajorAgendaByOfficialNumber } from '@/lib/major-agendas';
+import { polishText } from '@/lib/display-text';
 
 const voteGroups = [
   { id: 'sim', label: 'Votaram sim' },
@@ -19,6 +20,12 @@ const voteGroups = [
   { id: 'obstrucao', label: 'Obstruções' },
   { id: 'outros', label: 'Outros registros' },
 ];
+
+const agendaVoteStatusLabels = {
+  sim: 'Há voto nominal individual em etapas da pauta.',
+  parcial: 'Há votação parcial, simbólica ou nem sempre individual.',
+  nao: 'Voto nominal individual ainda não confirmado.',
+};
 
 const normalizeVoteGroup = (vote) => {
   const value = String(vote || '')
@@ -79,6 +86,48 @@ const VoteNames = ({ title, votes }) => (
   </div>
 );
 
+const AgendaSummaryPanel = ({ agenda, officialLabel }) => {
+  if (!agenda) return null;
+
+  return (
+    <Card className="border-blue-100 bg-blue-50">
+      <CardContent className="p-5">
+        <div className="mb-4 flex items-center gap-2">
+          <FileText className="h-5 w-5 text-blue-700" />
+          <h2 className="font-black text-blue-950">Resumo público da pauta</h2>
+        </div>
+        <div className="grid gap-3 md:grid-cols-4">
+          <div className="rounded-lg border border-blue-100 bg-white p-3">
+            <p className="text-xs font-bold uppercase text-gray-500">Número oficial</p>
+            <p className="mt-1 font-black text-gray-950">{officialLabel}</p>
+          </div>
+          <div className="rounded-lg border border-blue-100 bg-white p-3">
+            <p className="text-xs font-bold uppercase text-gray-500">Tema</p>
+            <p className="mt-1 font-black capitalize text-gray-950">{polishText(agenda.tema)}</p>
+          </div>
+          <div className="rounded-lg border border-blue-100 bg-white p-3">
+            <p className="text-xs font-bold uppercase text-gray-500">Ano de referência</p>
+            <p className="mt-1 font-black text-gray-950">{agenda.ano_pauta}</p>
+          </div>
+          <div className="rounded-lg border border-blue-100 bg-white p-3">
+            <p className="text-xs font-bold uppercase text-gray-500">Voto nominal</p>
+            <p className="mt-1 font-black text-gray-950">{polishText(agendaVoteStatusLabels[agenda.houve_voto_nominal] || agendaVoteStatusLabels.parcial)}</p>
+          </div>
+        </div>
+        {agenda.observacao_voto && (
+          <div className="mt-4 rounded-lg border border-yellow-100 bg-yellow-50 p-3 text-sm leading-relaxed text-yellow-950">
+            <p className="mb-1 font-bold">Observação sobre votos</p>
+            <p>{polishText(agenda.observacao_voto)}</p>
+          </div>
+        )}
+        <p className="mt-4 text-xs leading-relaxed text-blue-900">
+          Este resumo é um cadastro editorial do FISCALIZA para orientar a busca. Autores, situação, votações e nomes de deputados abaixo vêm da Câmara dos Deputados quando a fonte oficial retorna dados.
+        </p>
+      </CardContent>
+    </Card>
+  );
+};
+
 const VotingCard = ({ voting }) => {
   const grouped = groupVotes(voting.votes);
 
@@ -88,9 +137,9 @@ const VotingCard = ({ voting }) => {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-xs font-bold uppercase text-gray-500">Votação nominal</p>
-            <h2 className="mt-1 text-lg font-black text-gray-950">{voting.descricao || voting.id}</h2>
+            <h2 className="mt-1 text-lg font-black text-gray-950">{polishText(voting.descricao || voting.id)}</h2>
             <p className="mt-2 text-sm text-gray-600">
-              Data: {formatDate(voting.dataHoraRegistro || voting.data)}. Resultado: {voting.aprovacao || voting.resultado || 'não informado'}.
+              Data: {formatDate(voting.dataHoraRegistro || voting.data)}. Resultado: {polishText(voting.aprovacao || voting.resultado || 'não informado')}.
             </p>
           </div>
           {voting.uri && (
@@ -192,10 +241,10 @@ const AgendaDetailPage = ({ slugOverride = '' }) => {
                 {officialLabel}
               </div>
               <h1 className="text-3xl font-black text-gray-950">
-                {agenda?.apelido_pauta || (proposicao?.siglaTipo ? `${proposicao.siglaTipo} ${proposicao.numero}/${proposicao.ano}` : officialLabel)}
+                {polishText(agenda?.apelido_pauta || (proposicao?.siglaTipo ? `${proposicao.siglaTipo} ${proposicao.numero}/${proposicao.ano}` : officialLabel))}
               </h1>
               <p className="mt-3 max-w-4xl text-gray-600">
-                {proposicao?.ementa || agenda?.resumo_curto || 'Dados oficiais ainda não carregados.'}
+                {polishText(proposicao?.ementa || agenda?.resumo_curto || 'Dados oficiais ainda não carregados.')}
               </p>
             </div>
             {proposicao?.id && (
@@ -210,12 +259,18 @@ const AgendaDetailPage = ({ slugOverride = '' }) => {
       </div>
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <AgendaSummaryPanel agenda={agenda} officialLabel={officialLabel} />
+
         {loading ? (
-          <div className="flex justify-center py-20">
+          <div className="mt-6 flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white px-6 py-16 text-center">
             <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
+            <p className="mt-4 font-bold text-gray-900">Consultando a fonte oficial...</p>
+            <p className="mt-2 max-w-xl text-sm text-gray-500">
+              A página já mostra o resumo público da pauta acima. Os dados de autores, situação e votações aparecem aqui quando os Dados Abertos da Câmara respondem.
+            </p>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="mt-6 space-y-6">
             {error && (
               <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-900">
                 {error}
@@ -226,7 +281,7 @@ const AgendaDetailPage = ({ slugOverride = '' }) => {
               <Card>
                 <CardContent className="p-5">
                   <p className="text-xs font-bold uppercase text-gray-500">Situação</p>
-                  <p className="mt-1 text-lg font-black text-gray-950">{proposicao?.statusProposicao?.descricaoSituacao || 'Não informada pela fonte'}</p>
+                  <p className="mt-1 text-lg font-black text-gray-950">{polishText(proposicao?.statusProposicao?.descricaoSituacao || 'Não informada pela fonte')}</p>
                 </CardContent>
               </Card>
               <Card>

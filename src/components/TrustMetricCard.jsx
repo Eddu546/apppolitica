@@ -1,11 +1,12 @@
 import React from 'react';
 import { AlertTriangle, CheckCircle2, ExternalLink, HelpCircle, ShieldAlert } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { polishText } from '@/lib/display-text';
 import { formatCurrency, formatNumber } from '@/lib/legislative-logic';
 
 const statusStyles = {
   available: {
-    label: 'Disponivel',
+    label: 'Disponível',
     className: 'bg-green-50 text-green-700 border-green-200',
     icon: CheckCircle2,
   },
@@ -15,7 +16,7 @@ const statusStyles = {
     icon: AlertTriangle,
   },
   unavailable: {
-    label: 'Indisponivel',
+    label: 'Indisponível',
     className: 'bg-gray-50 text-gray-600 border-gray-200',
     icon: HelpCircle,
   },
@@ -27,17 +28,17 @@ const statusStyles = {
 };
 
 const confidenceLabels = {
-  high: 'Confianca alta',
-  medium: 'Confianca media',
-  low: 'Confianca baixa',
+  high: 'Confiança alta',
+  medium: 'Confiança média',
+  low: 'Confiança baixa',
   official: 'Fonte oficial',
   limited: 'Fonte limitada',
-  unavailable: 'Indisponivel',
+  unavailable: 'Indisponível',
 };
 
 const formatValue = (metric) => {
   if (metric.value === null || metric.value === undefined || metric.status === 'unavailable') {
-    return 'Dado indisponivel';
+    return 'Dado indisponível';
   }
 
   if (metric.unit === 'BRL') return formatCurrency(metric.value);
@@ -46,7 +47,7 @@ const formatValue = (metric) => {
 };
 
 const formatDate = (date) => {
-  if (!date) return 'Nao informado';
+  if (!date) return 'Não informado';
   return new Date(date).toLocaleString('pt-BR', {
     dateStyle: 'short',
     timeStyle: 'short',
@@ -57,16 +58,16 @@ const TrustMetricCard = ({ metric }) => {
   const status = metric.status || (metric.confidence === 'unavailable' ? 'unavailable' : 'available');
   const style = statusStyles[status] || statusStyles.unavailable;
   const Icon = style.icon;
-  const sourceName = metric.sourceName || metric.source || 'Fonte nao informada';
-  const explanation = metric.explanationForCitizen || metric.description || 'Metodo de calculo nao informado.';
-  const method = metric.calculationMethod || metric.description || 'Metodo de calculo nao informado.';
+  const sourceName = polishText(metric.sourceName || metric.source || 'Fonte não informada');
+  const explanation = polishText(metric.explanationForCitizen || metric.description || 'Método de cálculo não informado.');
+  const method = polishText(metric.calculationMethod || metric.description || 'Método de cálculo não informado.');
   const confidence = metric.confidenceLevel || metric.confidence || 'low';
 
   return (
     <Card className="shadow-sm border-gray-100 h-full">
       <CardContent className="p-5 h-full flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
-          <p className="text-sm font-semibold text-gray-700">{metric.label || metric.title}</p>
+          <p className="text-sm font-semibold text-gray-700">{polishText(metric.label || metric.title)}</p>
           <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold ${style.className}`}>
             <Icon className="w-3 h-3" />
             {style.label}
@@ -79,7 +80,7 @@ const TrustMetricCard = ({ metric }) => {
         {metric.warnings?.length > 0 && (
           <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-xs text-yellow-800 space-y-1">
             {metric.warnings.map((warning) => (
-              <p key={warning}>{warning}</p>
+              <p key={warning}>{polishText(warning)}</p>
             ))}
           </div>
         )}
@@ -87,9 +88,9 @@ const TrustMetricCard = ({ metric }) => {
         <div className="mt-auto border-t border-gray-100 pt-3 text-[11px] text-gray-500 space-y-1">
           <p><strong>Fonte:</strong> {sourceName}</p>
           <p><strong>Atualizado em:</strong> {formatDate(metric.fetchedAt)}</p>
-          <p><strong>Confianca:</strong> {confidenceLabels[confidence] || confidence}</p>
+          <p><strong>Confiança:</strong> {confidenceLabels[confidence] || polishText(confidence)}</p>
           <details className="pt-1">
-            <summary className="cursor-pointer font-semibold text-gray-600">Entenda este numero</summary>
+            <summary className="cursor-pointer font-semibold text-gray-600">Entenda este número</summary>
             <p className="mt-1 leading-relaxed">{method}</p>
           </details>
           {metric.sourceUrl && (

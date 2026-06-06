@@ -3,6 +3,7 @@ import { Helmet } from 'react-helmet';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, ExternalLink, FileText, Search, ShieldCheck, Vote } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { polishText } from '@/lib/display-text';
 import { MAJOR_AGENDAS, searchMajorAgendas } from '@/lib/major-agendas';
 import AgendaDetailPage from '@/pages/AgendaDetailPage';
 
@@ -42,7 +43,7 @@ const camaraPortalUrl = (value) => {
 const fiscalizaAgendaPath = (value) => {
   const parsed = parseOfficialNumber(value);
   if (!parsed) return '/pautas';
-  return `/pautas?proposicao=${encodeURIComponent(`${parsed.type}-${parsed.number}-${parsed.year}`)}`;
+  return `/pautas/${parsed.type}-${parsed.number}-${parsed.year}`;
 };
 
 const voteStatusInfo = {
@@ -82,7 +83,7 @@ const AgendaCard = ({ agenda }) => {
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1 space-y-4">
           <div className="flex flex-wrap gap-2">
-            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">{agenda.tema}</span>
+            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">{polishText(agenda.tema)}</span>
             <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-600">{agenda.tipo}</span>
             <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-bold ${voteInfo.style}`}>
               <VoteIcon className="h-3.5 w-3.5" />
@@ -91,11 +92,11 @@ const AgendaCard = ({ agenda }) => {
           </div>
 
           <div>
-            <h2 className="text-xl font-black text-gray-950">{agenda.apelido_pauta}</h2>
+            <h2 className="text-xl font-black text-gray-950">{polishText(agenda.apelido_pauta)}</h2>
             <p className="mt-1 text-sm font-bold text-blue-700">{agenda.numero_proposicao.join(' / ')}</p>
           </div>
 
-          <p className="max-w-4xl text-sm leading-relaxed text-gray-700">{agenda.resumo_curto}</p>
+          <p className="max-w-4xl text-sm leading-relaxed text-gray-700">{polishText(agenda.resumo_curto)}</p>
 
           <div className="grid gap-3 lg:grid-cols-2">
             <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm leading-relaxed text-blue-950">
@@ -105,7 +106,7 @@ const AgendaCard = ({ agenda }) => {
             {agenda.observacao_voto && (
               <div className="rounded-lg border border-yellow-100 bg-yellow-50 p-3 text-sm leading-relaxed text-yellow-950">
                 <p className="mb-1 font-bold">Observação sobre votos</p>
-                {agenda.observacao_voto}
+                {polishText(agenda.observacao_voto)}
               </div>
             )}
           </div>
@@ -244,7 +245,7 @@ const MajorAgendasPage = () => {
             <select value={theme} onChange={(event) => setTheme(event.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
               <option value="">Todos os temas</option>
               {themes.map((item) => (
-                <option key={item} value={item}>{item}</option>
+                <option key={item} value={item}>{polishText(item)}</option>
               ))}
             </select>
             <select value={voteStatus} onChange={(event) => setVoteStatus(event.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">

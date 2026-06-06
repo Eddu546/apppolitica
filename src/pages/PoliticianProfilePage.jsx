@@ -14,6 +14,7 @@ import { useToast } from '@/components/ui/use-toast';
 import TrustMetricCard from '@/components/TrustMetricCard';
 import ValidatedMetricsPanel from '@/components/ValidatedMetricsPanel';
 import VotingHighlightsPanel from '@/components/VotingHighlightsPanel';
+import { polishText } from '@/lib/display-text';
 import {
   buildDeputadoMetrics,
   buildFiscalizationIndex,
@@ -56,12 +57,12 @@ const ProjectList = ({ lista }) => (
             <ExternalLink className="w-4 h-4 text-gray-400 hover:text-blue-600" />
           </a>
         </div>
-        <p className="text-sm text-gray-700 leading-relaxed line-clamp-3">{proj.ementa}</p>
+        <p className="text-sm text-gray-700 leading-relaxed line-clamp-3">{polishText(proj.ementa)}</p>
       </div>
     ))}
     {lista.length === 0 && (
       <div className="text-center py-10 text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-200">
-        Nenhuma proposicao foi retornada pela API para este periodo.
+        Nenhuma proposição foi retornada pela API para este período.
       </div>
     )}
   </div>
@@ -95,7 +96,7 @@ const PoliticianProfilePage = () => {
 
       try {
         const dataInfo = await getDeputadoInfo(id);
-        if (!dataInfo) throw new Error('Perfil nao encontrado');
+        if (!dataInfo) throw new Error('Perfil não encontrado');
 
         setPolitico(dataInfo);
         const nomeParlamentar = dataInfo.ultimoStatus?.nomeEleitoral || dataInfo.nomeEleitoral;
@@ -153,7 +154,7 @@ const PoliticianProfilePage = () => {
         );
       } catch (error) {
         console.error('Erro ao carregar perfil:', error);
-        toast({ title: 'Erro', description: 'Nao foi possivel carregar os dados oficiais.', variant: 'destructive' });
+        toast({ title: 'Erro', description: 'Não foi possível carregar os dados oficiais.', variant: 'destructive' });
       } finally {
         setLoading(false);
       }
@@ -180,7 +181,7 @@ const PoliticianProfilePage = () => {
   }
 
   if (!politico) {
-    return <div className="min-h-screen flex items-center justify-center bg-gray-50">Deputado nao encontrado.</div>;
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50">Deputado não encontrado.</div>;
   }
 
   const info = politico.ultimoStatus || politico;
@@ -205,7 +206,7 @@ const PoliticianProfilePage = () => {
                 </p>
               )}
               <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
-                Este perfil mostra apenas indicadores auditaveis ou explicitamente limitados. O FISCALIZA nao calcula faltas, relatorias aprovadas ou score geral quando a API nao sustenta esse numero diretamente.
+                Este perfil mostra apenas indicadores auditáveis ou explicitamente limitados. O FISCALIZA não calcula faltas, relatorias aprovadas ou score geral quando a API não sustenta esse número diretamente.
               </div>
               {partialError && (
                 <div className="mt-4 bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg" role="alert">
@@ -236,8 +237,8 @@ const PoliticianProfilePage = () => {
         <Tabs defaultValue="indicadores" className="w-full">
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
             <TabsTrigger value="indicadores"><BarChart3 className="w-4 h-4 mr-2" /> Indicadores</TabsTrigger>
-            <TabsTrigger value="proposicoes"><FileText className="w-4 h-4 mr-2" /> Proposicoes</TabsTrigger>
-            <TabsTrigger value="votacoes"><ListChecks className="w-4 h-4 mr-2" /> Votacoes</TabsTrigger>
+            <TabsTrigger value="proposicoes"><FileText className="w-4 h-4 mr-2" /> Proposições</TabsTrigger>
+            <TabsTrigger value="votacoes"><ListChecks className="w-4 h-4 mr-2" /> Votações</TabsTrigger>
             <TabsTrigger value="gastos"><DollarSign className="w-4 h-4 mr-2" /> Gastos</TabsTrigger>
           </TabsList>
 
@@ -265,8 +266,8 @@ const PoliticianProfilePage = () => {
             <Card>
               <CardContent className="p-6">
                 <div className="mb-5">
-                  <h2 className="text-xl font-bold text-gray-900">Proposicoes legislativas encontradas</h2>
-                  <p className="text-sm text-gray-600">Fonte: Dados Abertos da Camara. Esta lista nao representa relatorias aprovadas.</p>
+                  <h2 className="text-xl font-bold text-gray-900">Proposições legislativas encontradas</h2>
+                  <p className="text-sm text-gray-600">Fonte: Dados Abertos da Câmara. Esta lista não representa relatorias aprovadas.</p>
                 </div>
                 <ProjectList lista={projetosComplexos} />
               </CardContent>
@@ -283,7 +284,7 @@ const PoliticianProfilePage = () => {
                 <h2 className="font-bold mb-2">Gastos da cota parlamentar ({anoSelecionado})</h2>
                 <p className="text-3xl font-bold mb-1">{formatCurrency(metrics.totalGastoAno.value || 0)}</p>
                 <p className="text-sm text-gray-600 mb-6">
-                  Fonte: Dados Abertos da Camara. Soma dos valores liquidos retornados pela API. CEAP e a cota usada para despesas ligadas ao mandato parlamentar.
+                  Fonte: Dados Abertos da Câmara. Soma dos valores líquidos retornados pela API. CEAP é a cota usada para despesas ligadas ao mandato parlamentar.
                 </p>
                 <div className="mb-6">
                   <ProfileAttentionPanel points={attentionPoints} />
@@ -306,7 +307,7 @@ const PoliticianProfilePage = () => {
                   </ResponsiveContainer>
                 </div>
                 <div className="mt-8">
-                  <h3 className="font-bold mb-2">Evolucao mensal de gastos</h3>
+                  <h3 className="font-bold mb-2">Evolução mensal de gastos</h3>
                   <div style={{ width: '100%', height: 260 }}>
                     <ResponsiveContainer>
                       <BarChart data={graficoMensal}>

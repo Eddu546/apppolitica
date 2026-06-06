@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { AlertTriangle, ExternalLink, Loader2, Search, Trophy } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { polishText } from '@/lib/display-text';
 import { formatCurrency, formatNumber } from '@/lib/legislative-logic';
 import {
   decorateSummariesWithSensitiveCategory,
@@ -17,7 +18,7 @@ const rankingCategoryOptions = [
   { id: 'total', label: 'Total geral de gastos' },
   ...SENSITIVE_CEAP_CATEGORIES.map((category) => ({
     id: category.id,
-    label: category.shortLabel,
+    label: polishText(category.shortLabel),
   })),
 ];
 
@@ -138,11 +139,11 @@ const RankingRow = ({ item, position, categoryLabel, categoryMode, listAverage }
                 <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-bold text-green-700">Câmara</span>
               </div>
               <p className="mt-2 text-xs text-gray-500">
-                Fonte: {item.source_name}. Consultado em {item.fetched_at ? new Date(item.fetched_at).toLocaleDateString('pt-BR') : 'data não informada'}.
+                Fonte: {polishText(item.source_name)}. Consultado em {item.fetched_at ? new Date(item.fetched_at).toLocaleDateString('pt-BR') : 'data não informada'}.
               </p>
               {item.partyCorrection && (
                 <p className="mt-1 text-xs text-blue-600">
-                  Partido corrigido com base na fonte oficial: {item.partyCorrection.sourceName}.
+                  Partido corrigido com base na fonte oficial: {polishText(item.partyCorrection.sourceName)}.
                 </p>
               )}
             </div>
@@ -292,10 +293,10 @@ const RankingsPage = () => {
                 <AlertTriangle className="mt-0.5 h-5 w-5 text-yellow-700" />
               )}
               <div>
-                <h2 className="font-bold text-gray-900">{baseStatus.label}</h2>
-                <p className="text-sm text-gray-700">{baseStatus.message}</p>
+                <h2 className="font-bold text-gray-900">{polishText(baseStatus.label)}</h2>
+                <p className="text-sm text-gray-700">{polishText(baseStatus.message)}</p>
                 {baseStatus.warnings.map((warning) => (
-                  <p key={warning} className="mt-1 text-xs text-gray-600">{warning}</p>
+                  <p key={warning} className="mt-1 text-xs text-gray-600">{polishText(warning)}</p>
                 ))}
               </div>
             </div>

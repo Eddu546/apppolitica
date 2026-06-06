@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckCircle2, ExternalLink } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { polishText } from '@/lib/display-text';
 
 const ValidatedMetricsPanel = ({ items = [] }) => {
   if (!items.length) return null;
@@ -13,7 +14,7 @@ const ValidatedMetricsPanel = ({ items = [] }) => {
           <div>
             <h2 className="font-bold text-green-950">Dados validados pelo FISCALIZA</h2>
             <p className="text-sm text-green-800">
-              Revisoes manuais publicadas com fonte. Elas complementam os dados oficiais, sem substituir a API.
+              Revisões manuais publicadas com fonte. Elas complementam os dados oficiais, sem substituir a API.
             </p>
           </div>
         </div>
@@ -23,10 +24,10 @@ const ValidatedMetricsPanel = ({ items = [] }) => {
             <div key={item.id} className="rounded-lg border border-green-200 bg-white p-4">
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                 <div>
-                  <p className="text-xs font-bold uppercase text-green-700">{item.metrica} / {item.ano}</p>
-                  <p className="text-lg font-extrabold text-gray-900">{item.valor}</p>
+                  <p className="text-xs font-bold uppercase text-green-700">{polishText(item.metrica)} / {item.ano}</p>
+                  <p className="text-lg font-extrabold text-gray-900">{polishText(item.valor)}</p>
                   {item.observacao_publica && (
-                    <p className="mt-1 text-sm text-gray-600">{item.observacao_publica}</p>
+                    <p className="mt-1 text-sm text-gray-600">{polishText(item.observacao_publica)}</p>
                   )}
                 </div>
                 <a
