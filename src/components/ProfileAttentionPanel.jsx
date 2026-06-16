@@ -15,6 +15,8 @@ const typeLabels = {
   sensitive_category_share: 'Categoria sensível',
 };
 
+const isSafeSourceUrl = (sourceUrl) => sourceUrl && !String(sourceUrl).includes('{');
+
 const ProfileAttentionPanel = ({ points = [] }) => {
   if (!points.length) {
     return (
@@ -88,7 +90,7 @@ const ProfileAttentionPanel = ({ points = [] }) => {
                   </details>
                 </div>
 
-                {point.sourceUrl && (
+                {isSafeSourceUrl(point.sourceUrl) && (
                   <a
                     href={point.sourceUrl}
                     target="_blank"

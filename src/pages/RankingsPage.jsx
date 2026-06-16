@@ -9,6 +9,7 @@ import { formatCurrency, formatNumber } from '@/lib/legislative-logic';
 import {
   decorateSummariesWithSensitiveCategory,
   fetchDeputyYearSummaries,
+  fetchLiveDeputyYearSummaries,
   getAnnualSummaryBaseStatus,
   isAnnualSummaryDatabaseConfigured,
 } from '@/services/annualSummaries';
@@ -202,23 +203,47 @@ const RankingsPage = () => {
   const [partyFilter, setPartyFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('total');
   const [sortBy, setSortBy] = useState('total_gasto');
+  const [sourceMode, setSourceMode] = useState('supabase');
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       setMessage('');
+      setSourceMode('supabase');
+
+      const loadLiveFallback = async (reason) => {
+        setSourceMode('live');
+        setMessage(`${reason} Montando amostra gratuita em tempo real pela API oficial da Câmara...`);
+        const liveResult = await fetchLiveDeputyYearSummaries(year, {
+          limit: 60,
+          onProgress: ({ current, total }) => {
+            setMessage(`Montando amostra oficial em tempo real: ${current} de ${total} deputados consultados.`);
+          },
+        });
+        setItems(liveResult.data || []);
+        setMessage(liveResult.message);
+      };
+
       try {
         const result = await fetchDeputyYearSummaries(year);
-        if (result.ok) {
+        if (result.ok && result.data?.length) {
           setItems(result.data || []);
+          setMessage('');
+        } else if (result.ok) {
+          await loadLiveFallback('Nenhum resumo anual foi encontrado no Supabase para este ano.');
         } else {
-          setItems([]);
-          setMessage('Supabase ainda não está configurado neste ambiente.');
+          await loadLiveFallback('Supabase ainda não está configurado neste ambiente.');
         }
       } catch (error) {
         console.error('Erro ao carregar rankings:', error);
-        setItems([]);
-        setMessage('Não foi possível carregar a base de rankings agora.');
+        try {
+          await loadLiveFallback('Não foi possível carregar o cache de rankings agora.');
+        } catch (fallbackError) {
+          console.error('Erro ao carregar rankings ao vivo:', fallbackError);
+          setSourceMode('error');
+          setItems([]);
+          setMessage('Não foi possível carregar o cache nem a amostra ao vivo da Câmara agora.');
+        }
       } finally {
         setLoading(false);
       }
@@ -295,6 +320,11 @@ const RankingsPage = () => {
               <div>
                 <h2 className="font-bold text-gray-900">{polishText(baseStatus.label)}</h2>
                 <p className="text-sm text-gray-700">{polishText(baseStatus.message)}</p>
+                {sourceMode === 'live' && (
+                  <p className="mt-1 text-xs font-semibold text-gray-700">
+                    Modo atual: amostra parcial ao vivo. Ela mantém a página útil sem custo, mas não substitui o cache anual completo.
+                  </p>
+                )}
                 {baseStatus.warnings.map((warning) => (
                   <p key={warning} className="mt-1 text-xs text-gray-600">{polishText(warning)}</p>
                 ))}

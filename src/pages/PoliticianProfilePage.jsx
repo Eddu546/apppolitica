@@ -164,8 +164,8 @@ const PoliticianProfilePage = () => {
   }, [id, anoSelecionado, toast]);
 
   const metrics = useMemo(
-    () => buildDeputadoMetrics({ proposicoes, despesas, eventos, discursos, votacoes }),
-    [proposicoes, despesas, eventos, discursos, votacoes]
+    () => buildDeputadoMetrics({ proposicoes, despesas, eventos, discursos, votacoes, deputadoId: id, ano: anoSelecionado }),
+    [anoSelecionado, despesas, discursos, eventos, id, proposicoes, votacoes]
   );
   const fiscalizationIndex = useMemo(() => buildFiscalizationIndex(metrics), [metrics]);
   const projetosComplexos = useMemo(() => filterComplexProjects(proposicoes), [proposicoes]);
@@ -302,7 +302,7 @@ const PoliticianProfilePage = () => {
                       <XAxis type="number" />
                       <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 12 }} />
                       <Tooltip formatter={(value) => formatCurrency(value)} />
-                      <Bar dataKey="value" fill="#2563eb" />
+                      <Bar dataKey="value" fill="#facc15" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -315,7 +315,7 @@ const PoliticianProfilePage = () => {
                         <XAxis dataKey="month" />
                         <YAxis />
                         <Tooltip formatter={(value) => formatCurrency(value)} />
-                        <Bar dataKey="value" fill="#0f766e" />
+                        <Bar dataKey="value" fill="#111827" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>

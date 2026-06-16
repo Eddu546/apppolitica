@@ -68,7 +68,7 @@ const regionsMap = {
   Sul: ['PR', 'RS', 'SC'],
 };
 
-const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#f97316', '#7c3aed', '#0ea5e9'];
+const COLORS = ['#facc15', '#111827', '#f59e0b', '#d97706', '#78716c', '#ca8a04'];
 
 const formatPercent = (value) =>
   `${((Number(value) || 0) * 100).toLocaleString('pt-BR', {
@@ -265,28 +265,28 @@ const AnalyticsPage = () => {
               value={EXPECTED_CAMARA_SEATS}
               hint="Referência institucional da Câmara dos Deputados"
               icon={Users}
-              colorClass="bg-blue-100 text-blue-600"
+              colorClass="bg-yellow-100 text-yellow-700"
             />
             <StatCard
               label="Registros consultados"
               value={stats.recordsReturned}
               hint={apiCountHint}
               icon={BarChart3}
-              colorClass="bg-orange-100 text-orange-600"
+              colorClass="bg-zinc-100 text-zinc-800"
             />
             <StatCard
               label="Partidos representados"
               value={stats.totalParties}
               hint="Contagem das siglas presentes na lista consultada"
               icon={Building2}
-              colorClass="bg-green-100 text-green-600"
+              colorClass="bg-amber-100 text-amber-700"
             />
             <StatCard
               label="Maior bancada"
               value={stats.largestParty.sigla}
               hint={`${stats.largestParty.count} registros, ${formatPercent(largestPartyShare)} da lista`}
               icon={TrendingUp}
-              colorClass="bg-purple-100 text-purple-600"
+              colorClass="bg-neutral-900 text-yellow-300"
             />
           </div>
 
@@ -313,9 +313,9 @@ const AnalyticsPage = () => {
                       <XAxis type="number" hide />
                       <YAxis dataKey="name" type="category" width={72} tick={{ fontWeight: 'bold' }} />
                       <Tooltip cursor={{ fill: 'transparent' }} />
-                      <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]}>
+                      <Bar dataKey="value" fill="#facc15" radius={[0, 4, 4, 0]}>
                         {stats.partyData.slice(0, 10).map((entry, index) => (
-                          <Cell key={`party-${entry.name}`} fill={index < 3 ? '#2563eb' : '#93c5fd'} />
+                          <Cell key={`party-${entry.name}`} fill={index < 3 ? '#facc15' : '#fde68a'} />
                         ))}
                       </Bar>
                     </BarChart>
@@ -379,9 +379,9 @@ const AnalyticsPage = () => {
                           return `${label}: ${item.value} deputados, ${formatCompactNumber(item.population)} habitantes`;
                         }}
                       />
-                      <Bar dataKey="deputiesPerMillion" fill="#10b981" radius={[4, 4, 0, 0]}>
+                      <Bar dataKey="deputiesPerMillion" fill="#ca8a04" radius={[4, 4, 0, 0]}>
                         {stats.stateData.map((entry) => (
-                          <Cell key={`state-${entry.name}`} fill={entry.deputiesPerMillion >= 5 ? '#059669' : '#86efac'} />
+                          <Cell key={`state-${entry.name}`} fill={entry.deputiesPerMillion >= 5 ? '#111827' : '#facc15'} />
                         ))}
                       </Bar>
                     </BarChart>

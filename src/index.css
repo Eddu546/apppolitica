@@ -12,9 +12,9 @@
   --popover: 0 0% 100%;
   --popover-foreground: 222.2 84% 4.9%;
  
-  /* Nova Cor Primária: Azul "Fiscaliza" */
-  --primary: 221.2 83.2% 53.3%;
-  --primary-foreground: 210 40% 98%;
+  /* Nova cor principal: amarelo FISCALIZA */
+  --primary: 47.9 95.8% 53.1%;
+  --primary-foreground: 0 0% 0%;
  
   --secondary: 210 40% 96.1%;
   --secondary-foreground: 222.2 47.4% 11.2%;
@@ -30,7 +30,7 @@
 
   --border: 214.3 31.8% 91.4%;
   --input: 214.3 31.8% 91.4%;
-  --ring: 221.2 83.2% 53.3%;
+  --ring: 47.9 95.8% 53.1%;
  
   --radius: 0.5rem;
 }
@@ -45,8 +45,8 @@
   --popover: 222.2 84% 4.9%;
   --popover-foreground: 210 40% 98%;
  
-  --primary: 217.2 91.2% 59.8%;
-  --primary-foreground: 222.2 47.4% 11.2%;
+  --primary: 47.9 95.8% 53.1%;
+  --primary-foreground: 0 0% 0%;
  
   --secondary: 217.2 32.6% 17.5%;
   --secondary-foreground: 210 40% 98%;
@@ -62,7 +62,7 @@
 
   --border: 217.2 32.6% 17.5%;
   --input: 217.2 32.6% 17.5%;
-  --ring: 224.3 76.3% 48%;
+  --ring: 47.9 95.8% 53.1%;
 }
 
 * {
@@ -83,4 +83,94 @@ body {
 .hover-lift:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+}
+
+@layer utilities {
+  .bg-blue-50 {
+    background-color: #fefce8 !important;
+  }
+
+  .bg-blue-100 {
+    background-color: #fef3c7 !important;
+  }
+
+  .bg-blue-200 {
+    background-color: #fde68a !important;
+  }
+
+  .bg-blue-300 {
+    background-color: #fcd34d !important;
+  }
+
+  .bg-blue-500,
+  .bg-blue-600,
+  .bg-blue-700,
+  .hover\:bg-blue-600:hover,
+  .hover\:bg-blue-700:hover {
+    background-color: #facc15 !important;
+    color: #000000 !important;
+  }
+
+  .hover\:bg-blue-50:hover {
+    background-color: #fefce8 !important;
+  }
+
+  .hover\:bg-blue-100:hover {
+    background-color: #fef3c7 !important;
+  }
+
+  .text-blue-200 {
+    color: #fef3c7 !important;
+  }
+
+  .text-blue-300,
+  .text-blue-400,
+  .text-blue-500,
+  .text-blue-600,
+  .text-blue-700,
+  .text-blue-800,
+  .text-blue-900,
+  .text-blue-950,
+  .hover\:text-blue-600:hover,
+  .hover\:text-blue-700:hover {
+    color: #ca8a04 !important;
+  }
+
+  .group:hover .group-hover\:text-blue-600 {
+    color: #ca8a04 !important;
+  }
+
+  .border-blue-50,
+  .border-blue-100,
+  .border-blue-200,
+  .border-blue-300,
+  .border-blue-500 {
+    border-color: #fde68a !important;
+  }
+
+  .hover\:border-blue-200:hover,
+  .hover\:border-blue-300:hover,
+  .group:hover .group-hover\:border-blue-50,
+  .group:hover .group-hover\:border-blue-200 {
+    border-color: #facc15 !important;
+  }
+
+  .focus\:ring-blue-500:focus,
+  .focus\:ring-blue-600:focus {
+    --tw-ring-color: rgba(250, 204, 21, 0.55) !important;
+  }
+
+  .shadow-blue-950\/20 {
+    --tw-shadow-color: rgba(113, 63, 18, 0.2) !important;
+  }
+
+  .text-white.bg-blue-500,
+  .text-white.bg-blue-600,
+  .text-white.bg-blue-700 {
+    color: #000000 !important;
+  }
+
+  .to-blue-900 {
+    --tw-gradient-to: #3b2a00 var(--tw-gradient-to-position) !important;
+  }
 }

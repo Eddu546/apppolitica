@@ -9,6 +9,7 @@ import { formatCurrency } from '@/lib/legislative-logic';
 import {
   buildSpendingAttentionPoints,
   fetchDeputyYearSummaries,
+  fetchLiveDeputyYearSummaries,
   getAnnualSummaryBaseStatus,
   isAnnualSummaryDatabaseConfigured,
 } from '@/services/annualSummaries';
@@ -120,23 +121,47 @@ const AttentionPointsPage = () => {
   const [typeFilter, setTypeFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [levelFilter, setLevelFilter] = useState('');
+  const [sourceMode, setSourceMode] = useState('supabase');
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       setMessage('');
+      setSourceMode('supabase');
+
+      const loadLiveFallback = async (reason) => {
+        setSourceMode('live');
+        setMessage(`${reason} Montando amostra gratuita em tempo real pela API oficial da Câmara...`);
+        const liveResult = await fetchLiveDeputyYearSummaries(year, {
+          limit: 60,
+          onProgress: ({ current, total }) => {
+            setMessage(`Montando amostra oficial em tempo real: ${current} de ${total} deputados consultados.`);
+          },
+        });
+        setSummaries(liveResult.data || []);
+        setMessage(liveResult.message);
+      };
+
       try {
         const result = await fetchDeputyYearSummaries(year);
-        if (result.ok) {
+        if (result.ok && result.data?.length) {
           setSummaries(result.data || []);
+          setMessage('');
+        } else if (result.ok) {
+          await loadLiveFallback('Nenhum resumo anual foi encontrado no Supabase para este ano.');
         } else {
-          setSummaries([]);
-          setMessage('Supabase ainda não está configurado neste ambiente.');
+          await loadLiveFallback('Supabase ainda não está configurado neste ambiente.');
         }
       } catch (error) {
         console.error('Erro ao carregar pontos de atenção:', error);
-        setSummaries([]);
-        setMessage('Não foi possível carregar os pontos de atenção agora.');
+        try {
+          await loadLiveFallback('Não foi possível carregar o cache de pontos de atenção agora.');
+        } catch (fallbackError) {
+          console.error('Erro ao carregar pontos de atenção ao vivo:', fallbackError);
+          setSourceMode('error');
+          setSummaries([]);
+          setMessage('Não foi possível carregar o cache nem a amostra ao vivo da Câmara agora.');
+        }
       } finally {
         setLoading(false);
       }
@@ -195,6 +220,11 @@ const AttentionPointsPage = () => {
               <div>
                 <h2 className="font-bold text-gray-900">{polishText(baseStatus.label)}</h2>
                 <p className="text-sm text-gray-700">{polishText(baseStatus.message)}</p>
+                {sourceMode === 'live' && (
+                  <p className="mt-1 text-xs font-semibold text-gray-700">
+                    Modo atual: amostra parcial ao vivo. Ela mantém a página útil sem custo, mas não substitui o cache anual completo.
+                  </p>
+                )}
                 <p className="mt-1 text-xs text-gray-600">
                   Mesmo com base completa, estes pontos são indicadores de triagem, não conclusões sobre conduta.
                 </p>

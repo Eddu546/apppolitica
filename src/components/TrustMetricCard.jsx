@@ -54,6 +54,11 @@ const formatDate = (date) => {
   });
 };
 
+const getSafeSourceUrl = (sourceUrl) => {
+  if (!sourceUrl || String(sourceUrl).includes('{')) return '';
+  return sourceUrl;
+};
+
 const TrustMetricCard = ({ metric }) => {
   const status = metric.status || (metric.confidence === 'unavailable' ? 'unavailable' : 'available');
   const style = statusStyles[status] || statusStyles.unavailable;
@@ -62,6 +67,7 @@ const TrustMetricCard = ({ metric }) => {
   const explanation = polishText(metric.explanationForCitizen || metric.description || 'Método de cálculo não informado.');
   const method = polishText(metric.calculationMethod || metric.description || 'Método de cálculo não informado.');
   const confidence = metric.confidenceLevel || metric.confidence || 'low';
+  const safeSourceUrl = getSafeSourceUrl(metric.sourceUrl);
 
   return (
     <Card className="shadow-sm border-gray-100 h-full">
@@ -93,11 +99,11 @@ const TrustMetricCard = ({ metric }) => {
             <summary className="cursor-pointer font-semibold text-gray-600">Entenda este número</summary>
             <p className="mt-1 leading-relaxed">{method}</p>
           </details>
-          {metric.sourceUrl && (
+          {safeSourceUrl && (
             <a
-              href={metric.sourceUrl}
-              target={metric.sourceUrl.startsWith('/') ? undefined : '_blank'}
-              rel={metric.sourceUrl.startsWith('/') ? undefined : 'noopener noreferrer'}
+              href={safeSourceUrl}
+              target={safeSourceUrl.startsWith('/') ? undefined : '_blank'}
+              rel={safeSourceUrl.startsWith('/') ? undefined : 'noopener noreferrer'}
               className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:underline"
             >
               Ver fonte <ExternalLink className="w-3 h-3" />

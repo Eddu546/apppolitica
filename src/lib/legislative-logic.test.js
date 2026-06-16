@@ -41,6 +41,19 @@ describe('legislative KPI calculations', () => {
     expect(isDisplayableKpi(metrics.totalGastoAno)).toBe(true);
   });
 
+  it('usa URLs oficiais reais nos cards quando deputado e ano sao conhecidos', () => {
+    const metrics = buildDeputadoMetrics({
+      despesas,
+      deputadoId: 204536,
+      ano: 2025,
+      fetchedAt: '2026-05-23T12:00:00.000Z',
+    });
+
+    expect(metrics.totalGastoAno.sourceUrl).toContain('/deputados/204536/despesas');
+    expect(metrics.totalGastoAno.sourceUrl).toContain('ano=2025');
+    expect(metrics.totalGastoAno.sourceUrl).not.toContain('{id}');
+  });
+
   it('agrupa despesas por categoria e por mes sem criar dados artificiais', () => {
     expect(groupExpensesByType(despesas)).toEqual([
       { name: 'DIVULGACAO', value: 500 },

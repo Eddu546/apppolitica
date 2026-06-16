@@ -33,7 +33,7 @@ const primaryNavigation = [
 
 const toolNavigation = [
   { name: 'Alertas', href: '/alertas', icon: ShieldAlert },
-  { name: 'Meu Roteiro', href: '/meu-roteiro', icon: ClipboardList, activePaths: ['/meu-roteiro', '/meu-dna'] },
+  { name: 'Meu roteiro', href: '/meu-roteiro', icon: ClipboardList, activePaths: ['/meu-roteiro', '/meu-dna'] },
   { name: 'Comparar', href: '/comparar', icon: Scale },
   { name: 'Validados', href: '/dados-validados', icon: CheckCircle2 },
   { name: 'Corrigir', href: '/corrigir', icon: Send },
@@ -65,8 +65,8 @@ const Header = () => {
         to={item.href}
         className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
           isActive(item)
-            ? 'bg-blue-600 text-white'
-            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+            ? 'bg-yellow-400 text-black'
+            : 'text-zinc-200 hover:bg-white/10 hover:text-yellow-200'
         }`}
       >
         <Icon className="h-4 w-4" />
@@ -84,8 +84,8 @@ const Header = () => {
         onClick={() => setIsMenuOpen(false)}
         className={`flex items-center space-x-3 rounded-md px-3 py-3 text-base font-medium transition-colors ${
           isActive(item)
-            ? 'bg-blue-600 text-white'
-            : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+            ? 'bg-yellow-400 text-black'
+            : 'text-zinc-100 hover:bg-white/10 hover:text-yellow-200'
         }`}
       >
         <Icon className="h-5 w-5" />
@@ -95,14 +95,14 @@ const Header = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white shadow-md">
+    <header className="sticky top-0 z-50 border-b border-yellow-400/20 bg-black shadow-md">
       <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-20 items-center justify-between gap-4">
           <Link to="/" className="flex min-w-[220px] shrink-0 items-center space-x-3">
-            <div className="h-8 w-8 text-blue-600">
+            <div className="h-8 w-8 text-yellow-300">
               <OncaLogo />
             </div>
-            <span className="text-2xl font-extrabold tracking-tight text-gray-900">
+            <span className="text-2xl font-extrabold tracking-tight text-white">
               FISCALIZA
             </span>
           </Link>
@@ -115,15 +115,15 @@ const Header = () => {
                 type="button"
                 className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
                   toolNavigation.some(isActive)
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-yellow-400 text-black'
+                    : 'text-zinc-200 hover:bg-white/10 hover:text-yellow-200'
                 }`}
               >
                 <span>Ferramentas</span>
                 <ChevronDown className="h-4 w-4" />
               </button>
               <div className="absolute right-0 top-full hidden w-56 pt-2 group-hover:block group-focus-within:block">
-                <div className="rounded-lg border border-gray-200 bg-white p-2 shadow-xl">
+                <div className="rounded-lg border border-yellow-400/20 bg-zinc-950 p-2 shadow-xl">
                   {toolNavigation.map((item) => {
                     const Icon = item.icon;
                     return (
@@ -132,8 +132,8 @@ const Header = () => {
                         to={item.href}
                         className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
                           isActive(item)
-                            ? 'bg-blue-50 text-blue-700'
-                            : 'text-gray-700 hover:bg-gray-50 hover:text-gray-950'
+                            ? 'bg-yellow-400 text-black'
+                            : 'text-zinc-200 hover:bg-white/10 hover:text-yellow-200'
                         }`}
                       >
                         <Icon className="h-4 w-4" />
@@ -152,9 +152,9 @@ const Header = () => {
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Buscar político..."
-              className="w-48 rounded-md border border-gray-300 bg-gray-100 py-2 pl-4 pr-10 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600 xl:w-56"
+              className="w-48 rounded-md border border-yellow-400/30 bg-zinc-900 py-2 pl-4 pr-10 text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 xl:w-56"
             />
-            <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600">
+            <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-yellow-300">
               <Search className="h-5 w-5" />
             </button>
           </form>
@@ -164,7 +164,7 @@ const Header = () => {
               variant="ghost"
               size="icon"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="text-gray-600 hover:bg-gray-100 hover:text-blue-600"
+              className="text-zinc-200 hover:bg-white/10 hover:text-yellow-300"
               aria-label={isMenuOpen ? 'Fechar menu' : 'Abrir menu'}
             >
               {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -177,7 +177,7 @@ const Header = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="border-t border-gray-200 bg-white lg:hidden"
+            className="border-t border-yellow-400/20 bg-black lg:hidden"
           >
             <div className="space-y-1 px-2 pb-3 pt-2">
               <form onSubmit={handleSearch} className="relative p-2">
@@ -186,17 +186,17 @@ const Header = () => {
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Buscar político..."
-                  className="w-full rounded-md border border-gray-300 bg-gray-100 py-2 pl-4 pr-10 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  className="w-full rounded-md border border-yellow-400/30 bg-zinc-900 py-2 pl-4 pr-10 text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-yellow-400"
                 />
-                <button type="submit" className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">
+                <button type="submit" className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400">
                   <Search className="h-5 w-5" />
                 </button>
               </form>
 
-              <p className="px-3 pt-3 text-xs font-bold uppercase tracking-wide text-gray-400">Principal</p>
+              <p className="px-3 pt-3 text-xs font-bold uppercase tracking-wide text-yellow-300">Principal</p>
               {primaryNavigation.map(renderMobileLink)}
 
-              <p className="px-3 pt-4 text-xs font-bold uppercase tracking-wide text-gray-400">Ferramentas</p>
+              <p className="px-3 pt-4 text-xs font-bold uppercase tracking-wide text-yellow-300">Ferramentas</p>
               {toolNavigation.map(renderMobileLink)}
             </div>
           </motion.div>

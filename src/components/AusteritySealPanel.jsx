@@ -66,6 +66,8 @@ const getCheckState = (check) => {
   };
 };
 
+const isSafeSourceUrl = (sourceUrl) => sourceUrl && !String(sourceUrl).includes('{');
+
 const AusteritySealPanel = ({ seal }) => {
   if (!seal) return null;
 
@@ -134,7 +136,7 @@ const AusteritySealPanel = ({ seal }) => {
                       <summary className="cursor-pointer font-bold text-slate-600">Como foi verificado</summary>
                       <p className="mt-1 leading-relaxed">{polishText(check.calculationMethod || 'Método não informado.')}</p>
                     </details>
-                    {check.sourceUrl && (
+                    {isSafeSourceUrl(check.sourceUrl) && (
                       <a
                         href={check.sourceUrl}
                         target="_blank"

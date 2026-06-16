@@ -18,6 +18,8 @@ const formatDate = (date) => {
   });
 };
 
+const isSafeSourceUrl = (sourceUrl) => sourceUrl && !String(sourceUrl).includes('{');
+
 const SensitiveCeapPanel = ({ summary }) => {
   if (!summary) return null;
 
@@ -121,7 +123,7 @@ const SensitiveCeapPanel = ({ summary }) => {
             <summary className="cursor-pointer font-bold text-slate-600">Como foi calculado</summary>
             <p className="mt-1 leading-relaxed">{polishText(summary.calculationMethod)}</p>
           </details>
-          {summary.sourceUrl && (
+          {isSafeSourceUrl(summary.sourceUrl) && (
             <a
               href={summary.sourceUrl}
               target="_blank"

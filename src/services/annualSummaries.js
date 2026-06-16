@@ -4,6 +4,7 @@ import {
   groupExpensesByMonth,
 } from '@/lib/legislative-logic';
 import { applyPartyCorrectionToSummary, getCorrectedPartyForCamaraId } from '@/lib/party-corrections';
+import { getAllDeputadosList, getDeputadoDespesas } from '@/services/camara';
 import { SENSITIVE_CEAP_CATEGORIES, classifySensitiveCeapType } from '@/services/benefits';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -401,6 +402,54 @@ export const fetchDeputyYearSummaries = async (ano) => {
 
   const data = await response.json();
   return { ok: true, data: data.map(applyPartyCorrectionToSummary) };
+};
+
+export const fetchLiveDeputyYearSummaries = async (ano, options = {}) => {
+  const limit = Number(options.limit || 60);
+  const concurrency = Math.max(1, Math.min(Number(options.concurrency || 4), 6));
+  const deputados = await getAllDeputadosList();
+  const selectedDeputies = deputados.slice(0, limit);
+  const summaries = [];
+
+  let completed = 0;
+  for (let index = 0; index < selectedDeputies.length; index += concurrency) {
+    const batch = selectedDeputies.slice(index, index + concurrency);
+    const batchSummaries = await Promise.all(batch.map(async (deputado) => {
+      try {
+        const despesas = await getDeputadoDespesas(deputado.id, ano);
+        return buildDeputyAnnualExpenseSummary({ deputado, despesas, ano });
+      } catch (error) {
+        console.warn('[FISCALIZA] Falha ao montar resumo anual ao vivo.', {
+          deputadoId: deputado.id,
+          ano,
+          error,
+        });
+        return null;
+      } finally {
+        completed += 1;
+        if (typeof options.onProgress === 'function') {
+          options.onProgress({
+            current: completed,
+            total: selectedDeputies.length,
+            totalAvailable: deputados.length,
+          });
+        }
+      }
+    }));
+
+    summaries.push(...batchSummaries.filter(Boolean));
+  }
+
+  return {
+    ok: true,
+    source: 'live-camara',
+    isLiveFallback: true,
+    totalAvailable: deputados.length,
+    limit: selectedDeputies.length,
+    data: summaries.map(applyPartyCorrectionToSummary),
+    message:
+      `Amostra parcial montada em tempo real com ${summaries.length} de ${deputados.length} deputados retornados pela API oficial. Para ranking nacional definitivo, sincronize o ano completo no Supabase.`,
+  };
 };
 
 export const getAnnualSummaryBaseStatus = (summaries = []) => {

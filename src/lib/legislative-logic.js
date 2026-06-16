@@ -94,12 +94,20 @@ const sourceWithFetch = (source, fetchedAt) => ({
   fetchedAt: fetchedAt || new Date().toISOString(),
 });
 
+const sourceFromList = (source, list, fallbackUrl) => ({
+  sourceName: list.__meta?.sourceName || source.sourceName,
+  sourceUrl: list.__meta?.sourceUrl || fallbackUrl || source.sourceUrl,
+  fetchedAt: list.__meta?.fetchedAt || source.fetchedAt,
+});
+
 export const buildDeputadoMetrics = ({
   proposicoes = [],
   despesas = [],
   eventos = [],
   discursos = [],
   votacoes = [],
+  deputadoId,
+  ano,
   fetchedAt,
 } = {}) => {
   const listaProposicoes = ensureArray(proposicoes);
@@ -108,6 +116,41 @@ export const buildDeputadoMetrics = ({
   const listaDiscursos = ensureArray(discursos);
   const listaVotacoes = ensureArray(votacoes);
   const camara = sourceWithFetch(SOURCES.camara, fetchedAt);
+  const encodedDeputadoId = deputadoId ? encodeURIComponent(deputadoId) : '';
+  const encodedAno = ano ? encodeURIComponent(ano) : '';
+  const despesasSource = sourceFromList(
+    camara,
+    listaDespesas,
+    encodedDeputadoId
+      ? `https://dadosabertos.camara.leg.br/api/v2/deputados/${encodedDeputadoId}/despesas${encodedAno ? `?ano=${encodedAno}` : ''}`
+      : 'https://dadosabertos.camara.leg.br/api/v2/deputados'
+  );
+  const proposicoesSource = sourceFromList(
+    camara,
+    listaProposicoes,
+    encodedDeputadoId
+      ? `https://dadosabertos.camara.leg.br/api/v2/proposicoes?idDeputadoAutor=${encodedDeputadoId}${encodedAno ? `&ano=${encodedAno}` : ''}`
+      : 'https://dadosabertos.camara.leg.br/api/v2/proposicoes'
+  );
+  const eventosSource = sourceFromList(
+    camara,
+    listaEventos,
+    encodedDeputadoId
+      ? `https://dadosabertos.camara.leg.br/api/v2/deputados/${encodedDeputadoId}/eventos`
+      : 'https://dadosabertos.camara.leg.br/api/v2/deputados'
+  );
+  const discursosSource = sourceFromList(
+    camara,
+    listaDiscursos,
+    encodedDeputadoId
+      ? `https://dadosabertos.camara.leg.br/api/v2/deputados/${encodedDeputadoId}/discursos`
+      : 'https://dadosabertos.camara.leg.br/api/v2/deputados'
+  );
+  const votacoesSource = sourceFromList(
+    camara,
+    listaVotacoes,
+    'https://dadosabertos.camara.leg.br/api/v2/votacoes'
+  );
 
   const totalGasto = listaDespesas.reduce((acc, d) => acc + parseMoney(d.valorLiquido), 0);
   const months = countMonthsWithExpenses(listaDespesas);
@@ -136,9 +179,9 @@ export const buildDeputadoMetrics = ({
       value: totalGasto,
       unit: 'BRL',
       status: listaDespesas.length ? DATA_STATUS.available : DATA_STATUS.unavailable,
-      sourceName: camara.sourceName,
-      sourceUrl: 'https://dadosabertos.camara.leg.br/api/v2/deputados/{id}/despesas',
-      fetchedAt: camara.fetchedAt,
+      sourceName: despesasSource.sourceName,
+      sourceUrl: despesasSource.sourceUrl,
+      fetchedAt: despesasSource.fetchedAt,
       confidenceLevel: listaDespesas.length ? CONFIDENCE_LEVEL.high : CONFIDENCE_LEVEL.low,
       calculationMethod: 'Soma dos valores liquidos das despesas parlamentares retornadas pela API da Camara para o ano selecionado.',
       explanationForCitizen: `Este parlamentar declarou ${formatCurrency(totalGasto)} em despesas parlamentares neste ano.`,
@@ -151,9 +194,9 @@ export const buildDeputadoMetrics = ({
       value: listaDespesas.length ? mediaMensal : null,
       unit: 'BRL',
       status: listaDespesas.length ? DATA_STATUS.available : DATA_STATUS.unavailable,
-      sourceName: camara.sourceName,
-      sourceUrl: 'https://dadosabertos.camara.leg.br/api/v2/deputados/{id}/despesas',
-      fetchedAt: camara.fetchedAt,
+      sourceName: despesasSource.sourceName,
+      sourceUrl: despesasSource.sourceUrl,
+      fetchedAt: despesasSource.fetchedAt,
       confidenceLevel: CONFIDENCE_LEVEL.high,
       calculationMethod: 'Total gasto dividido pela quantidade de meses com despesas registradas no ano consultado.',
       explanationForCitizen: listaDespesas.length
@@ -167,9 +210,9 @@ export const buildDeputadoMetrics = ({
       value: listaDespesas.length,
       unit: 'despesas',
       status: listaDespesas.length ? DATA_STATUS.available : DATA_STATUS.unavailable,
-      sourceName: camara.sourceName,
-      sourceUrl: 'https://dadosabertos.camara.leg.br/api/v2/deputados/{id}/despesas',
-      fetchedAt: camara.fetchedAt,
+      sourceName: despesasSource.sourceName,
+      sourceUrl: despesasSource.sourceUrl,
+      fetchedAt: despesasSource.fetchedAt,
       confidenceLevel: CONFIDENCE_LEVEL.high,
       calculationMethod: 'Contagem dos registros de despesa retornados pela API da Camara no ano selecionado.',
       explanationForCitizen: `Foram encontrados ${formatNumber(listaDespesas.length)} registros de despesas declaradas.`,
@@ -181,9 +224,9 @@ export const buildDeputadoMetrics = ({
       value: topSupplier?.name || null,
       unit: 'texto',
       status: topSupplier ? DATA_STATUS.available : DATA_STATUS.unavailable,
-      sourceName: camara.sourceName,
-      sourceUrl: 'https://dadosabertos.camara.leg.br/api/v2/deputados/{id}/despesas',
-      fetchedAt: camara.fetchedAt,
+      sourceName: despesasSource.sourceName,
+      sourceUrl: despesasSource.sourceUrl,
+      fetchedAt: despesasSource.fetchedAt,
       confidenceLevel: topSupplier ? CONFIDENCE_LEVEL.high : CONFIDENCE_LEVEL.low,
       calculationMethod: 'Agrupamento das despesas por fornecedor e selecao do maior valor somado.',
       explanationForCitizen: topSupplier
@@ -198,9 +241,9 @@ export const buildDeputadoMetrics = ({
       value: listaProposicoes.length,
       unit: 'proposicoes',
       status: DATA_STATUS.available,
-      sourceName: camara.sourceName,
-      sourceUrl: 'https://dadosabertos.camara.leg.br/api/v2/proposicoes?idDeputadoAutor={id}',
-      fetchedAt: camara.fetchedAt,
+      sourceName: proposicoesSource.sourceName,
+      sourceUrl: proposicoesSource.sourceUrl,
+      fetchedAt: proposicoesSource.fetchedAt,
       confidenceLevel: CONFIDENCE_LEVEL.high,
       calculationMethod: 'Contagem das proposicoes retornadas pela API da Camara para o deputado e ano selecionado.',
       explanationForCitizen: `Apresentou ou assinou ${formatNumber(listaProposicoes.length)} propostas retornadas pela API neste ano.`,
@@ -213,9 +256,9 @@ export const buildDeputadoMetrics = ({
       value: projetosLegislativos.length,
       unit: 'projetos',
       status: DATA_STATUS.available,
-      sourceName: camara.sourceName,
-      sourceUrl: 'https://dadosabertos.camara.leg.br/api/v2/proposicoes?idDeputadoAutor={id}',
-      fetchedAt: camara.fetchedAt,
+      sourceName: proposicoesSource.sourceName,
+      sourceUrl: proposicoesSource.sourceUrl,
+      fetchedAt: proposicoesSource.fetchedAt,
       confidenceLevel: CONFIDENCE_LEVEL.high,
       calculationMethod: 'Recorte das proposicoes cujo tipo e PL, PLP, PEC ou MPV.',
       explanationForCitizen: `${formatNumber(projetosLegislativos.length)} registros sao projetos legislativos como PL, PLP, PEC ou MPV.`,
@@ -227,9 +270,9 @@ export const buildDeputadoMetrics = ({
       value: atividadesRegistradas.length,
       unit: 'eventos',
       status: listaEventos.length ? DATA_STATUS.partial : DATA_STATUS.unavailable,
-      sourceName: camara.sourceName,
-      sourceUrl: 'https://dadosabertos.camara.leg.br/api/v2/deputados/{id}/eventos',
-      fetchedAt: camara.fetchedAt,
+      sourceName: eventosSource.sourceName,
+      sourceUrl: eventosSource.sourceUrl,
+      fetchedAt: eventosSource.fetchedAt,
       confidenceLevel: CONFIDENCE_LEVEL.medium,
       calculationMethod: 'Contagem de eventos oficiais retornados pela agenda da Camara com descricao de sessao, votacao ou reuniao.',
       explanationForCitizen: 'Este indicador considera eventos oficiais registrados na base da Camara. Pode nao representar todas as atividades politicas do parlamentar.',
@@ -241,9 +284,9 @@ export const buildDeputadoMetrics = ({
       value: listaDiscursos.length,
       unit: 'discursos',
       status: listaDiscursos.length ? DATA_STATUS.available : DATA_STATUS.unavailable,
-      sourceName: camara.sourceName,
-      sourceUrl: 'https://dadosabertos.camara.leg.br/api/v2/deputados/{id}/discursos',
-      fetchedAt: camara.fetchedAt,
+      sourceName: discursosSource.sourceName,
+      sourceUrl: discursosSource.sourceUrl,
+      fetchedAt: discursosSource.fetchedAt,
       confidenceLevel: listaDiscursos.length ? CONFIDENCE_LEVEL.high : CONFIDENCE_LEVEL.low,
       calculationMethod: 'Contagem dos discursos retornados pela API da Camara no periodo consultado.',
       explanationForCitizen: `Foram encontrados ${formatNumber(listaDiscursos.length)} discursos registrados oficialmente.`,
@@ -255,9 +298,9 @@ export const buildDeputadoMetrics = ({
       value: listaVotacoes.length,
       unit: 'votacoes',
       status: listaVotacoes.length ? DATA_STATUS.partial : DATA_STATUS.unavailable,
-      sourceName: camara.sourceName,
-      sourceUrl: 'https://dadosabertos.camara.leg.br/api/v2/votacoes/{id}/votos',
-      fetchedAt: camara.fetchedAt,
+      sourceName: votacoesSource.sourceName,
+      sourceUrl: votacoesSource.sourceUrl,
+      fetchedAt: votacoesSource.fetchedAt,
       confidenceLevel: CONFIDENCE_LEVEL.medium,
       calculationMethod: 'Contagem do recorte de votacoes relevantes em que /votacoes/{id}/votos retornou voto nominal do parlamentar no ano selecionado.',
       explanationForCitizen: 'Mostra votacoes nominais abertas selecionadas por relevancia publica, como seguranca, penas, economia, direitos e temas institucionais.',
