@@ -1,195 +1,251 @@
 import React from 'react';
 import { Helmet } from 'react-helmet';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Target, Eye, Code2, Database, Shield, Users } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Database,
+  ExternalLink,
+  FileSearch,
+  HeartHandshake,
+  Scale,
+  ShieldCheck,
+  Target,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
-const AboutPage = () => {
-  const values = [
-    {
-      icon: Eye,
-      title: 'Transparência',
-      description: 'Acreditamos que todo cidadão tem o direito de saber como seus representantes atuam e como o dinheiro público é gasto.',
-    },
-    {
-      icon: Shield,
-      title: 'Independência',
-      description: 'Somos uma iniciativa sem vínculos partidários ou financiamento governamental. Nosso compromisso é com o cidadão.',
-    },
-    {
-      icon: Code2,
-      title: 'Dados Abertos',
-      description: 'Utilizamos APIs públicas oficiais e indicamos quando um dado é limitado ou indisponível.',
-    },
-    {
-      icon: Users,
-      title: 'Engajamento Cívico',
-      description: 'Queremos transformar dados complexos em informação acessível para que qualquer pessoa possa fiscalizar o poder.',
-    },
-  ];
+const principles = [
+  {
+    icon: ShieldCheck,
+    title: 'Fonte antes do número',
+    description: 'Todo indicador precisa apontar fonte, data de consulta e método de cálculo. Sem fonte confiável, o dado fica indisponível.',
+  },
+  {
+    icon: Scale,
+    title: 'Linguagem responsável',
+    description: 'O FISCALIZA mostra pontos de atenção, não acusações. Gasto alto, fornecedor concentrado ou dado ausente exigem análise.',
+  },
+  {
+    icon: FileSearch,
+    title: 'Explicação para o cidadão',
+    description: 'A plataforma traduz termos como CEAP, proposição, votação nominal e relatoria para uma leitura simples.',
+  },
+  {
+    icon: Target,
+    title: 'Fiscalização prática',
+    description: 'A meta é ajudar qualquer pessoa a sair da opinião solta e consultar dados públicos com método.',
+  },
+];
 
-  const techStack = [
-    { name: 'React 18', desc: 'Interface de usuário' },
-    { name: 'Vite', desc: 'Build e desenvolvimento' },
-    { name: 'TailwindCSS', desc: 'Estilização' },
-    { name: 'Recharts', desc: 'Visualizações' },
-    { name: 'Framer Motion', desc: 'Animações' },
-    { name: 'API Câmara', desc: 'Dados dos Deputados' },
-    { name: 'API Senado', desc: 'Dados dos Senadores' },
-    { name: 'Vercel', desc: 'Hospedagem' },
-  ];
+const dataLayers = [
+  {
+    label: 'Dados oficiais',
+    value: 'Câmara e Senado',
+    description: 'Listas de parlamentares, despesas, proposições, eventos, votos e fichas oficiais quando a API retorna dados.',
+  },
+  {
+    label: 'Indicadores calculados',
+    value: 'FISCALIZA',
+    description: 'Somas, médias, rankings e pontos de atenção calculados pelo site a partir das fontes oficiais disponíveis.',
+  },
+  {
+    label: 'Correções validadas',
+    value: 'Manual',
+    description: 'Informações enviadas por usuários entram apenas após análise, fonte e revisão. Nada altera dado oficial automaticamente.',
+  },
+];
 
-  return (
-    <>
-      <Helmet>
-        <title>Sobre o Projeto - FISCALIZA</title>
-        <meta name="description" content="Conheça a missão do FISCALIZA, a plataforma independente de transparência política brasileira." />
-      </Helmet>
-      <div className="bg-white text-gray-900">
-        {/* Hero */}
-        <div className="bg-gradient-to-br from-slate-900 to-blue-900 text-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              className="text-center"
-            >
-              <h1 className="text-4xl md:text-5xl font-extrabold mb-4">
-                Sobre o <span className="text-blue-400">FISCALIZA</span>
-              </h1>
-              <p className="text-xl md:text-2xl max-w-3xl mx-auto text-gray-300">
-                Promovendo a transparência e o engajamento cívico através da fiscalização do poder.
-              </p>
-            </motion.div>
-          </div>
-        </div>
+const whatWeDo = [
+  'Soma despesas parlamentares retornadas pela API oficial.',
+  'Mostra médias, ranking e comparação quando o cache anual está sincronizado.',
+  'Exibe proposições, discursos, atividades e votações com fonte visível.',
+  'Cria páginas internas de fonte para explicar método, endpoint e limitação do dado.',
+];
 
-        {/* Missão */}
-        <div className="bg-gray-50 py-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid md:grid-cols-2 gap-12 items-center">
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6 }}
-              >
-                <div className="flex items-center mb-6">
-                  <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mr-4">
-                    <Target className="w-6 h-6 text-white" />
-                  </div>
-                  <h2 className="text-3xl font-bold">Nossa Missão</h2>
-                </div>
-                <p className="text-gray-600 leading-relaxed text-lg mb-4">
-                  Nossa missão é simples: democratizar o acesso aos dados públicos. O FISCALIZA transforma planilhas complexas do governo em informações claras e visuais, permitindo que qualquer cidadão atue como um fiscal do uso do dinheiro público.
-                </p>
-                <p className="text-gray-600 leading-relaxed text-lg">
-                  Somos uma iniciativa independente, sem vínculos partidários, construída sobre dados abertos oficiais e metodologia cautelosa. Quando a API não sustenta uma conclusão, o indicador aparece como limitado ou indisponível.
-                </p>
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="grid grid-cols-2 gap-4"
-              >
-                {[
-                  { label: 'Deputados Monitorados', value: '513' },
-                  { label: 'Senadores Monitorados', value: '81' },
-                  { label: 'Anos de Dados', value: '3+' },
-                  { label: 'APIs Integradas', value: '2' },
-                ].map((stat) => (
-                  <div key={stat.label} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 text-center">
-                    <div className="text-3xl font-extrabold text-blue-600 mb-1">{stat.value}</div>
-                    <div className="text-sm text-gray-500">{stat.label}</div>
-                  </div>
-                ))}
-              </motion.div>
+const whatWeDoNotDo = [
+  'Não inventa faltas, presenças ou relatorias quando a fonte não confirma.',
+  'Não chama proposição apresentada de proposição aprovada.',
+  'Não transforma ponto de atenção em acusação de crime.',
+  'Não usa ranking ou índice como verdade oficial sobre qualidade do mandato.',
+];
+
+const sources = [
+  {
+    title: 'Câmara dos Deputados - Dados Abertos',
+    description: 'Deputados, despesas CEAP, proposições, eventos, discursos, votações e votos nominais quando disponíveis.',
+    href: 'https://dadosabertos.camara.leg.br',
+  },
+  {
+    title: 'Senado Federal - Dados Abertos',
+    description: 'Ficha oficial de senadores e integrações adicionais somente quando houver endpoint confirmável e normalizado.',
+    href: 'https://legis.senado.leg.br/dadosabertos',
+  },
+  {
+    title: 'Portal da Transparência do Senado',
+    description: 'Fonte auxiliar para consulta manual de despesas e dados ainda não normalizados dentro do FISCALIZA.',
+    href: 'https://www6g.senado.leg.br/transparencia/sen/',
+  },
+];
+
+const AboutPage = () => (
+  <>
+    <Helmet>
+      <title>Sobre o Projeto - FISCALIZA</title>
+      <meta
+        name="description"
+        content="Conheça a missão, as fontes e os limites metodológicos do FISCALIZA."
+      />
+    </Helmet>
+
+    <div className="min-h-screen bg-gray-50 text-gray-900">
+      <section className="border-b border-yellow-400/20 bg-black text-white">
+        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="max-w-4xl"
+          >
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-yellow-400/40 bg-yellow-400/10 px-3 py-1 text-sm font-bold text-yellow-300">
+              <ShieldCheck className="h-4 w-4" />
+              Transparência pública com método
             </div>
-          </div>
-        </div>
-
-        {/* Valores */}
-        <div className="py-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-gray-900">Nossos Valores</h2>
-            </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {values.map((value, index) => {
-                const Icon = value.icon;
-                return (
-                  <motion.div
-                    key={value.title}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: index * 0.1 }}
-                    className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
-                  >
-                    <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center mb-4">
-                      <Icon className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <h3 className="font-bold text-gray-900 mb-2">{value.title}</h3>
-                    <p className="text-gray-500 text-sm leading-relaxed">{value.description}</p>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Stack Tecnológico */}
-        <div className="bg-gray-50 py-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">Stack Tecnológico</h2>
-              <p className="text-gray-600 max-w-2xl mx-auto">
-                O FISCALIZA é construído com tecnologias modernas e de código aberto, garantindo performance, escalabilidade e manutenibilidade.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {techStack.map((tech) => (
-                <div key={tech.name} className="bg-white rounded-lg p-4 border border-gray-200 text-center hover:border-blue-300 transition-colors">
-                  <div className="font-bold text-gray-900 text-sm">{tech.name}</div>
-                  <div className="text-gray-500 text-xs mt-1">{tech.desc}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Fontes de Dados */}
-        <div className="py-20">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <Database className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Fontes de Dados</h2>
-            <p className="text-gray-600 mb-8 leading-relaxed">
-              Os dados exibidos no FISCALIZA vêm das APIs públicas oficiais. A curadoria do site se limita a organizar, somar e explicar limitações metodológicas para evitar rankings ou acusações sem base auditável.
+            <h1 className="text-4xl font-black tracking-tight md:text-5xl">
+              Sobre o <span className="text-yellow-300">FISCALIZA</span>
+            </h1>
+            <p className="mt-5 max-w-3xl text-lg leading-relaxed text-zinc-300">
+              O FISCALIZA nasceu para transformar dados públicos legislativos em informação simples, rastreável e útil para o cidadão comum acompanhar deputados e senadores.
             </p>
-            <div className="grid md:grid-cols-2 gap-6">
-              <a
-                href="https://dadosabertos.camara.leg.br"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block bg-blue-50 border border-blue-200 rounded-xl p-6 hover:bg-blue-100 transition-colors text-left"
-              >
-                <h3 className="font-bold text-blue-900 mb-2">API da Câmara dos Deputados</h3>
-                <p className="text-blue-700 text-sm">Dados de deputados, proposições, votações, despesas e eventos legislativos.</p>
-              </a>
-              <a
-                href="https://legis.senado.leg.br/dadosabertos"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block bg-green-50 border border-green-200 rounded-xl p-6 hover:bg-green-100 transition-colors text-left"
-              >
-                <h3 className="font-bold text-green-900 mb-2">API do Senado Federal</h3>
-                <p className="text-green-700 text-sm">Dados de senadores, matérias legislativas, votações, comissões e relatorias.</p>
-              </a>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Button asChild className="bg-yellow-400 text-black hover:bg-yellow-300">
+                <Link to="/deputados">Ver deputados</Link>
+              </Button>
+              <Button asChild variant="outline" className="border-yellow-400/40 bg-transparent text-yellow-100 hover:bg-yellow-400/10">
+                <Link to="/roadmap">Ver roteiro do projeto</Link>
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <section className="grid gap-4 md:grid-cols-3">
+          {dataLayers.map((item) => (
+            <div key={item.label} className="rounded-lg border border-gray-100 bg-white p-5 shadow-sm">
+              <p className="text-xs font-black uppercase text-gray-500">{item.label}</p>
+              <p className="mt-2 text-2xl font-black text-gray-950">{item.value}</p>
+              <p className="mt-2 text-sm leading-relaxed text-gray-600">{item.description}</p>
+            </div>
+          ))}
+        </section>
+
+        <section className="mt-10 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="rounded-lg border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <Target className="h-6 w-6 text-yellow-700" />
+              <h2 className="text-2xl font-black text-gray-950">Missão</h2>
+            </div>
+            <p className="text-sm leading-relaxed text-gray-700">
+              A missão do FISCALIZA é reduzir a distância entre dados oficiais e fiscalização cidadã. O projeto organiza informações sobre gastos, proposições, votações, atividades registradas e pontos de atenção, sempre deixando claro o que é dado oficial e o que é cálculo do site.
+            </p>
+            <div className="mt-5 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm leading-relaxed text-yellow-950">
+              Quando a fonte não sustenta uma conclusão, a plataforma prefere mostrar “dado indisponível” a publicar número bonito sem base.
             </div>
           </div>
-        </div>
-      </div>
-    </>
-  );
-};
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {principles.map((principle, index) => {
+              const Icon = principle.icon;
+              return (
+                <motion.div
+                  key={principle.title}
+                  initial={{ opacity: 0, y: 12 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.04 }}
+                  className="rounded-lg border border-gray-100 bg-white p-5 shadow-sm"
+                >
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-50 text-yellow-700">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <h3 className="font-black text-gray-950">{principle.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-600">{principle.description}</p>
+                </motion.div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="mt-10 grid gap-6 lg:grid-cols-2">
+          <div className="rounded-lg border border-green-200 bg-green-50 p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <CheckCircle2 className="h-6 w-6 text-green-700" />
+              <h2 className="text-xl font-black text-green-950">O que o FISCALIZA faz</h2>
+            </div>
+            <ul className="space-y-3 text-sm leading-relaxed text-green-950">
+              {whatWeDo.map((item) => (
+                <li key={item} className="rounded-lg bg-white/70 p-3">{item}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <AlertTriangle className="h-6 w-6 text-yellow-700" />
+              <h2 className="text-xl font-black text-yellow-950">O que o FISCALIZA não faz</h2>
+            </div>
+            <ul className="space-y-3 text-sm leading-relaxed text-yellow-950">
+              {whatWeDoNotDo.map((item) => (
+                <li key={item} className="rounded-lg bg-white/70 p-3">{item}</li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        <section className="mt-10 rounded-lg border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="mb-5 flex items-center gap-2">
+            <Database className="h-6 w-6 text-yellow-700" />
+            <h2 className="text-2xl font-black text-gray-950">Fontes usadas</h2>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            {sources.map((source) => (
+              <a
+                key={source.title}
+                href={source.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg border border-gray-100 bg-gray-50 p-4 transition-colors hover:border-yellow-300 hover:bg-yellow-50"
+              >
+                <h3 className="font-black text-gray-950">{source.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-gray-600">{source.description}</p>
+                <span className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-yellow-800">
+                  Abrir fonte <ExternalLink className="h-4 w-4" />
+                </span>
+              </a>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-10 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <div className="mb-3 flex items-center gap-2">
+                <HeartHandshake className="h-6 w-6 text-yellow-700" />
+                <h2 className="text-2xl font-black text-gray-950">Independência e apoio transparente</h2>
+              </div>
+              <p className="text-sm leading-relaxed text-gray-700">
+                O FISCALIZA possui uma página oficial de apoio com custos, metas e regras de independência. Contribuições ao projeto não são doação eleitoral, não financiam campanha e não compram alteração de dados, rankings ou validações.
+              </p>
+            </div>
+            <Button asChild className="shrink-0 bg-yellow-400 font-black text-black hover:bg-yellow-300">
+              <Link to="/apoie">Ver custos e apoio</Link>
+            </Button>
+          </div>
+        </section>
+      </main>
+    </div>
+  </>
+);
 
 export default AboutPage;

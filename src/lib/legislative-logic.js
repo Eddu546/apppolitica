@@ -125,6 +125,21 @@ export const buildDeputadoMetrics = ({
       ? `https://dadosabertos.camara.leg.br/api/v2/deputados/${encodedDeputadoId}/despesas${encodedAno ? `?ano=${encodedAno}` : ''}`
       : 'https://dadosabertos.camara.leg.br/api/v2/deputados'
   );
+  const despesasSourcePageUrl = encodedDeputadoId && encodedAno
+    ? `/fonte/deputado/${encodedDeputadoId}/despesas/${encodedAno}`
+    : '';
+  const proposicoesSourcePageUrl = encodedDeputadoId && encodedAno
+    ? `/fonte/deputado/${encodedDeputadoId}/proposicoes/${encodedAno}`
+    : '';
+  const eventosSourcePageUrl = encodedDeputadoId && encodedAno
+    ? `/fonte/deputado/${encodedDeputadoId}/eventos/${encodedAno}`
+    : '';
+  const discursosSourcePageUrl = encodedDeputadoId && encodedAno
+    ? `/fonte/deputado/${encodedDeputadoId}/discursos/${encodedAno}`
+    : '';
+  const votacoesSourcePageUrl = encodedDeputadoId && encodedAno
+    ? `/fonte/deputado/${encodedDeputadoId}/votacoes/${encodedAno}`
+    : '';
   const proposicoesSource = sourceFromList(
     camara,
     listaProposicoes,
@@ -181,6 +196,7 @@ export const buildDeputadoMetrics = ({
       status: listaDespesas.length ? DATA_STATUS.available : DATA_STATUS.unavailable,
       sourceName: despesasSource.sourceName,
       sourceUrl: despesasSource.sourceUrl,
+      sourcePageUrl: despesasSourcePageUrl,
       fetchedAt: despesasSource.fetchedAt,
       confidenceLevel: listaDespesas.length ? CONFIDENCE_LEVEL.high : CONFIDENCE_LEVEL.low,
       calculationMethod: 'Soma dos valores liquidos das despesas parlamentares retornadas pela API da Camara para o ano selecionado.',
@@ -196,6 +212,7 @@ export const buildDeputadoMetrics = ({
       status: listaDespesas.length ? DATA_STATUS.available : DATA_STATUS.unavailable,
       sourceName: despesasSource.sourceName,
       sourceUrl: despesasSource.sourceUrl,
+      sourcePageUrl: despesasSourcePageUrl,
       fetchedAt: despesasSource.fetchedAt,
       confidenceLevel: CONFIDENCE_LEVEL.high,
       calculationMethod: 'Total gasto dividido pela quantidade de meses com despesas registradas no ano consultado.',
@@ -212,6 +229,7 @@ export const buildDeputadoMetrics = ({
       status: listaDespesas.length ? DATA_STATUS.available : DATA_STATUS.unavailable,
       sourceName: despesasSource.sourceName,
       sourceUrl: despesasSource.sourceUrl,
+      sourcePageUrl: despesasSourcePageUrl,
       fetchedAt: despesasSource.fetchedAt,
       confidenceLevel: CONFIDENCE_LEVEL.high,
       calculationMethod: 'Contagem dos registros de despesa retornados pela API da Camara no ano selecionado.',
@@ -226,6 +244,7 @@ export const buildDeputadoMetrics = ({
       status: topSupplier ? DATA_STATUS.available : DATA_STATUS.unavailable,
       sourceName: despesasSource.sourceName,
       sourceUrl: despesasSource.sourceUrl,
+      sourcePageUrl: despesasSourcePageUrl,
       fetchedAt: despesasSource.fetchedAt,
       confidenceLevel: topSupplier ? CONFIDENCE_LEVEL.high : CONFIDENCE_LEVEL.low,
       calculationMethod: 'Agrupamento das despesas por fornecedor e selecao do maior valor somado.',
@@ -243,6 +262,7 @@ export const buildDeputadoMetrics = ({
       status: DATA_STATUS.available,
       sourceName: proposicoesSource.sourceName,
       sourceUrl: proposicoesSource.sourceUrl,
+      sourcePageUrl: proposicoesSourcePageUrl,
       fetchedAt: proposicoesSource.fetchedAt,
       confidenceLevel: CONFIDENCE_LEVEL.high,
       calculationMethod: 'Contagem das proposicoes retornadas pela API da Camara para o deputado e ano selecionado.',
@@ -258,6 +278,7 @@ export const buildDeputadoMetrics = ({
       status: DATA_STATUS.available,
       sourceName: proposicoesSource.sourceName,
       sourceUrl: proposicoesSource.sourceUrl,
+      sourcePageUrl: proposicoesSourcePageUrl,
       fetchedAt: proposicoesSource.fetchedAt,
       confidenceLevel: CONFIDENCE_LEVEL.high,
       calculationMethod: 'Recorte das proposicoes cujo tipo e PL, PLP, PEC ou MPV.',
@@ -272,6 +293,7 @@ export const buildDeputadoMetrics = ({
       status: listaEventos.length ? DATA_STATUS.partial : DATA_STATUS.unavailable,
       sourceName: eventosSource.sourceName,
       sourceUrl: eventosSource.sourceUrl,
+      sourcePageUrl: eventosSourcePageUrl,
       fetchedAt: eventosSource.fetchedAt,
       confidenceLevel: CONFIDENCE_LEVEL.medium,
       calculationMethod: 'Contagem de eventos oficiais retornados pela agenda da Camara com descricao de sessao, votacao ou reuniao.',
@@ -286,6 +308,7 @@ export const buildDeputadoMetrics = ({
       status: listaDiscursos.length ? DATA_STATUS.available : DATA_STATUS.unavailable,
       sourceName: discursosSource.sourceName,
       sourceUrl: discursosSource.sourceUrl,
+      sourcePageUrl: discursosSourcePageUrl,
       fetchedAt: discursosSource.fetchedAt,
       confidenceLevel: listaDiscursos.length ? CONFIDENCE_LEVEL.high : CONFIDENCE_LEVEL.low,
       calculationMethod: 'Contagem dos discursos retornados pela API da Camara no periodo consultado.',
@@ -300,6 +323,7 @@ export const buildDeputadoMetrics = ({
       status: listaVotacoes.length ? DATA_STATUS.partial : DATA_STATUS.unavailable,
       sourceName: votacoesSource.sourceName,
       sourceUrl: votacoesSource.sourceUrl,
+      sourcePageUrl: votacoesSourcePageUrl,
       fetchedAt: votacoesSource.fetchedAt,
       confidenceLevel: CONFIDENCE_LEVEL.medium,
       calculationMethod: 'Contagem do recorte de votacoes relevantes em que /votacoes/{id}/votos retornou voto nominal do parlamentar no ano selecionado.',

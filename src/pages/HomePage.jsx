@@ -9,6 +9,7 @@ import {
   DollarSign,
   ExternalLink,
   FileText,
+  HeartHandshake,
   Instagram,
   Scale,
   Search,
@@ -88,7 +89,7 @@ const HomePage = () => {
               </Button>
             </form>
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               <Button asChild size="lg" className="h-14 rounded-lg bg-yellow-400 px-6 text-base font-black text-black shadow-lg shadow-yellow-950/20 hover:bg-yellow-300">
                 <Link to="/deputados">Ver deputados <ArrowRight className="ml-2 h-5 w-5" /></Link>
               </Button>
@@ -100,6 +101,9 @@ const HomePage = () => {
               </Button>
               <Button asChild size="lg" className="h-14 rounded-lg border border-white/25 bg-white/10 px-6 text-base font-bold text-white hover:bg-white/20">
                 <Link to="/pautas"><FileText className="mr-2 h-5 w-5" /> Ver pautas</Link>
+              </Button>
+              <Button asChild size="lg" className="h-14 rounded-lg border border-yellow-300/50 bg-yellow-300/10 px-6 text-base font-bold text-yellow-100 hover:bg-yellow-300/20">
+                <Link to="/apoie"><HeartHandshake className="mr-2 h-5 w-5" /> Apoie</Link>
               </Button>
             </div>
           </motion.div>
@@ -184,6 +188,25 @@ const HomePage = () => {
               </div>
               <h3 className="mb-3 text-xl font-black">Roteiro cidadão</h3>
               <p className="text-gray-600">Monte um caminho de fiscalização sem afinidade inventada e com links para dados verificáveis.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-yellow-100 bg-yellow-50 py-14">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="rounded-lg border border-yellow-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-sm font-black uppercase tracking-wide text-yellow-700">Sustentabilidade do projeto</p>
+                <h2 className="mt-2 text-2xl font-black text-gray-950">Ajude o FISCALIZA a continuar gratuito</h2>
+                <p className="mt-2 max-w-3xl text-gray-700">
+                  A página de apoio mostra custos, meta mensal e regras de independência. Contribuir com o projeto não altera dados, rankings ou validações.
+                </p>
+              </div>
+              <Button asChild className="bg-black font-black text-yellow-300 hover:bg-zinc-900">
+                <Link to="/apoie">Ver custos e apoiar</Link>
+              </Button>
             </div>
           </div>
         </div>

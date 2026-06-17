@@ -52,6 +52,11 @@ describe('legislative KPI calculations', () => {
     expect(metrics.totalGastoAno.sourceUrl).toContain('/deputados/204536/despesas');
     expect(metrics.totalGastoAno.sourceUrl).toContain('ano=2025');
     expect(metrics.totalGastoAno.sourceUrl).not.toContain('{id}');
+    expect(metrics.totalGastoAno.sourcePageUrl).toBe('/fonte/deputado/204536/despesas/2025');
+    expect(metrics.proposicoes.sourcePageUrl).toBe('/fonte/deputado/204536/proposicoes/2025');
+    expect(metrics.atividades.sourcePageUrl).toBe('/fonte/deputado/204536/eventos/2025');
+    expect(metrics.discursos.sourcePageUrl).toBe('/fonte/deputado/204536/discursos/2025');
+    expect(metrics.votacoesNominais.sourcePageUrl).toBe('/fonte/deputado/204536/votacoes/2025');
   });
 
   it('agrupa despesas por categoria e por mes sem criar dados artificiais', () => {

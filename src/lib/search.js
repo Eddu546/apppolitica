@@ -42,3 +42,45 @@ export const filterAndSortByName = (items = [], query = '', getName = (item) => 
     })
     .map((entry) => entry.item);
 };
+
+const rankFieldMatch = (value = '', query = '') => {
+  const normalizedValue = normalizeSearchText(value);
+  const normalizedQuery = normalizeSearchText(query);
+
+  if (!normalizedQuery || !normalizedValue) return 0;
+  if (normalizedValue === normalizedQuery) return 75;
+  if (normalizedValue.startsWith(normalizedQuery)) return 65;
+  if (normalizedValue.split(' ').some((part) => part.startsWith(normalizedQuery))) return 55;
+  if (normalizedValue.includes(normalizedQuery)) return 45;
+  return 0;
+};
+
+export const rankRecordMatch = (item = {}, query = '', fieldGetters = []) => {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) return 1;
+
+  return fieldGetters.reduce((best, fieldGetter, index) => {
+    const rawValue = typeof fieldGetter === 'function' ? fieldGetter(item) : item?.[fieldGetter];
+    const score = index === 0
+      ? rankNameMatch(rawValue, normalizedQuery)
+      : rankFieldMatch(rawValue, normalizedQuery);
+    return Math.max(best, score);
+  }, 0);
+};
+
+export const filterAndSortByFields = (items = [], query = '', fieldGetters = []) => {
+  const normalizedQuery = normalizeSearchText(query);
+
+  return [...items]
+    .map((item) => ({
+      item,
+      rank: rankRecordMatch(item, normalizedQuery, fieldGetters),
+      name: fieldGetters[0] ? (typeof fieldGetters[0] === 'function' ? fieldGetters[0](item) : item?.[fieldGetters[0]]) : '',
+    }))
+    .filter((entry) => !normalizedQuery || entry.rank > 0)
+    .sort((a, b) => {
+      if (b.rank !== a.rank) return b.rank - a.rank;
+      return String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR');
+    })
+    .map((entry) => entry.item);
+};

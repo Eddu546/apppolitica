@@ -191,6 +191,88 @@ const getSensitiveCategoryAttentionLevel = ({ categoryId, amount, share }) => {
   return null;
 };
 
+const ATTENTION_POINT_TYPE_WEIGHT = {
+  above_average_spending: 6,
+  sensitive_category_share: 5,
+  supplier_concentration: 4,
+  unusually_low_spending: 3,
+  possible_partial_mandate: 2,
+  missing_expense_data: 1,
+};
+
+const getExpenseRecordCount = (summary) => {
+  if (summary.quantidade_despesas === undefined || summary.quantidade_despesas === null) return null;
+  const parsed = Number(summary.quantidade_despesas);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const buildLowOrMissingExpensePoint = ({ summary, baseAverage, hasNationalBase }) => {
+  const total = Number(summary.total_gasto || 0);
+  const recordCount = getExpenseRecordCount(summary);
+  if (recordCount === null) return null;
+
+  const basePayload = {
+    deputyId: summary.deputado_id,
+    deputyName: summary.nome,
+    party: summary.partido,
+    state: summary.uf,
+    year: summary.ano,
+    amount: total,
+    total,
+    average: hasNationalBase ? baseAverage : null,
+    recordCount,
+    sourceName: summary.source_name,
+    sourceUrl: summary.source_url,
+    fetchedAt: summary.fetched_at,
+  };
+
+  if (total === 0 && recordCount === 0) {
+    return {
+      ...basePayload,
+      id: `${summary.ano}-${summary.deputado_id}-missing-expenses`,
+      type: 'missing_expense_data',
+      level: 'medium',
+      title: 'Ausência de despesas no resumo',
+      explanation:
+        'Nenhuma despesa CEAP apareceu no resumo anual sincronizado. Isso não prova automaticamente que não houve custo do mandato; pode indicar não uso da cota, mandato parcial, licença, suplência ou limitação da fonte consultada.',
+      calculationMethod:
+        'O FISCALIZA encontrou total_gasto igual a zero e quantidade_despesas igual a zero no resumo anual sincronizado.',
+    };
+  }
+
+  if (!hasNationalBase || baseAverage <= 0) return null;
+
+  if (recordCount <= 5 && total <= baseAverage * 0.25) {
+    return {
+      ...basePayload,
+      id: `${summary.ano}-${summary.deputado_id}-possible-partial-mandate`,
+      type: 'possible_partial_mandate',
+      level: 'medium',
+      title: 'Possível mandato parcial ou poucos registros',
+      explanation:
+        `Foram encontrados apenas ${recordCount} registro(s) de despesa e o total ficou bem abaixo da média da base. Isso merece checagem de posse, licença, suplência ou uso reduzido da CEAP; não é conclusão sobre conduta.`,
+      calculationMethod:
+        'Quantidade de despesas menor ou igual a 5 e total anual abaixo de 25% da média nacional da base sincronizada.',
+    };
+  }
+
+  if (total > 0 && total < baseAverage * 0.12) {
+    return {
+      ...basePayload,
+      id: `${summary.ano}-${summary.deputado_id}-low-spending`,
+      type: 'unusually_low_spending',
+      level: 'medium',
+      title: 'Gasto muito abaixo da média',
+      explanation:
+        `O total gasto representa ${(total / baseAverage * 100).toFixed(1)}% da média da base sincronizada. Isso pode ser uso baixo da cota, mandato parcial ou dado incompleto; merece análise da fonte oficial.`,
+      calculationMethod:
+        'Total anual do parlamentar dividido pela média nacional dos deputados sincronizados. O ponto aparece quando fica abaixo de 12% da média.',
+    };
+  }
+
+  return null;
+};
+
 export const buildSensitiveCategoryAttentionPoints = (summaries = []) =>
   summaries.flatMap((summary) => {
     const total = Number(summary.total_gasto || 0);
@@ -459,7 +541,7 @@ export const getAnnualSummaryBaseStatus = (summaries = []) => {
     return {
       status: 'available',
       count,
-      label: 'Base suficiente',
+      label: 'Base completa',
       message: `A base tem ${count} deputados sincronizados. O ranking pode ser lido como comparativo nacional de gastos dentro do ano selecionado.`,
       warnings: [],
     };
@@ -531,6 +613,9 @@ export const buildSpendingAttentionPoints = (summaries = []) => {
       });
     }
 
+    const lowOrMissingPoint = buildLowOrMissingExpensePoint({ summary, baseAverage, hasNationalBase });
+    if (lowOrMissingPoint) points.push(lowOrMissingPoint);
+
     if (hasNationalBase && summary.total_gasto > baseAverage * 1.5) {
       points.push({
         id: `${summary.ano}-${summary.deputado_id}-above-average`,
@@ -566,6 +651,9 @@ export const buildSpendingAttentionPoints = (summaries = []) => {
     if (levelWeight[b.level] !== levelWeight[a.level]) {
       return levelWeight[b.level] - levelWeight[a.level];
     }
+    const typeDifference =
+      (ATTENTION_POINT_TYPE_WEIGHT[b.type] || 0) - (ATTENTION_POINT_TYPE_WEIGHT[a.type] || 0);
+    if (typeDifference !== 0) return typeDifference;
     return Number(b.amount || 0) - Number(a.amount || 0);
   });
 };

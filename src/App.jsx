@@ -11,6 +11,7 @@ import SenatorProfilePage from '@/pages/SenatorProfilePage';
 import DnaPoliticoPage from '@/pages/DnaPoliticoPage';
 import AboutPage from '@/pages/AboutPage';
 import RoadmapPage from '@/pages/RoadmapPage';
+import SupportPage from '@/pages/SupportPage';
 import DeputadosPage from '@/pages/DeputadosPage';
 import ComparisonPage from '@/pages/ComparisonPage';
 import SenadoresPage from '@/pages/SenadoresPage';
@@ -22,6 +23,8 @@ import RankingsPage from '@/pages/RankingsPage';
 import AttentionPointsPage from '@/pages/AttentionPointsPage';
 import MajorAgendasPage from '@/pages/MajorAgendasPage';
 import AgendaDetailPage from '@/pages/AgendaDetailPage';
+import SystemHealthPage from '@/pages/SystemHealthPage';
+import SourceDetailPage from '@/pages/SourceDetailPage';
 
 function App() {
   return (
@@ -55,10 +58,15 @@ function App() {
             <Route path="/meu-dna" element={<DnaPoliticoPage />} />
             <Route path="/sobre" element={<AboutPage />} />
             <Route path="/roadmap" element={<RoadmapPage />} />
+            <Route path="/apoie" element={<SupportPage />} />
+            <Route path="/apoiar" element={<SupportPage />} />
             <Route path="/comparar" element={<ComparisonPage />} />
             <Route path="/corrigir" element={<CorrectionPage />} />
             <Route path="/dados-validados" element={<ValidatedMetricsPage />} />
             <Route path="/admin" element={<AdminCorrectionsPage />} />
+            <Route path="/saude" element={<SystemHealthPage />} />
+            <Route path="/status" element={<SystemHealthPage />} />
+            <Route path="/fonte/deputado/:deputyId/:dataset/:year" element={<SourceDetailPage />} />
           </Routes>
         </main>
 

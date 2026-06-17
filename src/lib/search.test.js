@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterAndSortByName, normalizeSearchText, rankNameMatch } from '@/lib/search';
+import { filterAndSortByFields, filterAndSortByName, normalizeSearchText, rankNameMatch } from '@/lib/search';
 
 describe('search helpers', () => {
   it('normaliza texto removendo acentos e espacos extras', () => {
@@ -34,5 +34,16 @@ describe('search helpers', () => {
   it('encontra nomes depois da letra m sem depender de select nativo', () => {
     expect(rankNameMatch('Nicoletti', 'nic')).toBeGreaterThan(0);
     expect(rankNameMatch('Zeca Dirceu', 'zec')).toBeGreaterThan(0);
+  });
+
+  it('permite busca global por partido e estado sem perder a prioridade do nome', () => {
+    const items = [
+      { nome: 'Kim Kataguiri', partido: 'MISSÃO', uf: 'SP', cargo: 'Deputado Federal' },
+      { nome: 'João da Paraíba', partido: 'PSB', uf: 'PB', cargo: 'Deputado Federal' },
+      { nome: 'Maria Silva', partido: 'PT', uf: 'PB', cargo: 'Senadora' },
+    ];
+
+    expect(filterAndSortByFields(items, 'missao', ['nome', 'partido', 'uf', 'cargo']).map((item) => item.nome)).toEqual(['Kim Kataguiri']);
+    expect(filterAndSortByFields(items, 'PB', ['nome', 'partido', 'uf', 'cargo']).map((item) => item.nome)).toEqual(['João da Paraíba', 'Maria Silva']);
   });
 });

@@ -6,27 +6,37 @@ import { AlertCircle, FileText, Loader2, Search, ShieldCheck } from 'lucide-reac
 import { Button } from '@/components/ui/button';
 import { polishText } from '@/lib/display-text';
 import { searchMajorAgendas } from '@/lib/major-agendas';
+import { filterAndSortByFields } from '@/lib/search';
+import { getAllDeputadosList } from '@/services/camara';
+import { getSenadoresAtuais } from '@/services/senado';
 
 const fallbackPhoto = 'https://www.camara.leg.br/tema/assets/images/foto-deputado-sem-foto.png';
+
+const agendaDetailLink = (agenda) => {
+  const officialNumber = agenda?.numero_proposicao?.[0] || '';
+  const match = officialNumber.match(/^([A-Z]+)\s+(\d+)\/(\d{4})$/i);
+  if (!match) return `/pautas?busca=${encodeURIComponent(agenda?.apelido_pauta || officialNumber)}`;
+  return `/pautas/${match[1].toUpperCase()}-${match[2]}-${match[3]}`;
+};
 
 const AgendaResultCard = ({ agenda, index }) => (
   <motion.div
     initial={{ opacity: 0, y: 12 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ delay: index * 0.04 }}
-    className="rounded-lg border border-blue-100 bg-white p-5 shadow-sm"
+    className="rounded-lg border border-yellow-100 bg-white p-5 shadow-sm"
   >
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
       <div>
         <div className="flex flex-wrap gap-2">
-          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">{polishText(agenda.tema)}</span>
+          <span className="rounded-full bg-yellow-50 px-2 py-0.5 text-xs font-bold text-yellow-900">{polishText(agenda.tema)}</span>
           <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-600">{agenda.tipo}</span>
           <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-bold text-green-700">
             Voto nominal: {agenda.houve_voto_nominal}
           </span>
         </div>
         <h3 className="mt-3 text-xl font-black text-gray-950">{polishText(agenda.apelido_pauta)}</h3>
-        <p className="mt-1 text-sm font-bold text-blue-700">{agenda.numero_proposicao.join(' / ')}</p>
+        <p className="mt-1 text-sm font-bold text-yellow-900">{agenda.numero_proposicao.join(' / ')}</p>
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-gray-700">{polishText(agenda.resumo_curto)}</p>
         {agenda.observacao_voto && (
           <p className="mt-2 text-xs leading-relaxed text-gray-500">{polishText(agenda.observacao_voto)}</p>
@@ -34,9 +44,9 @@ const AgendaResultCard = ({ agenda, index }) => (
       </div>
       <div className="rounded-lg border border-yellow-100 bg-yellow-50 p-3 text-xs leading-relaxed text-yellow-900 lg:max-w-xs">
         <ShieldCheck className="mb-1 h-4 w-4" />
-        Esta é uma pauta cadastrada pelo FISCALIZA para ajudar a tradução. O voto individual aparece apenas nos perfis quando a Câmara retorna registro nominal.
-        <Link to={`/pautas?busca=${encodeURIComponent(agenda.apelido_pauta)}`} className="mt-2 block font-bold text-blue-700 hover:underline">
-          Ver na página de pautas
+        Esta é uma pauta cadastrada pelo FISCALIZA para ajudar a tradução. A página de detalhe mostra autores, situação e votações quando a Câmara retorna dados.
+        <Link to={agendaDetailLink(agenda)} className="mt-2 block font-bold text-yellow-900 hover:underline">
+          Ver dados da pauta
         </Link>
       </div>
     </div>
@@ -102,9 +112,8 @@ const SearchResultsPage = () => {
       setAgendaResults(agendas);
 
       try {
-        const deputadosReq = fetch(`/api/camara/api/v2/deputados?nome=${encodeURIComponent(query)}&ordem=ASC&ordenarPor=nome&itens=20`)
-          .then((response) => (response.ok ? response.json() : { dados: [] }))
-          .then((data) => (data.dados || []).map((deputado) => ({
+        const deputadosReq = getAllDeputadosList()
+          .then((deputados) => deputados.map((deputado) => ({
             id: deputado.id,
             nome: deputado.nome,
             partido: deputado.siglaPartido,
@@ -116,29 +125,33 @@ const SearchResultsPage = () => {
           })))
           .catch(() => []);
 
-        const senadoresReq = fetch('/api/senado/senador/lista/atual.json')
-          .then((response) => (response.ok ? response.json() : { ListaParlamentarEmExercicio: { Parlamentares: { Parlamentar: [] } } }))
-          .then((data) => {
-            const lista = data.ListaParlamentarEmExercicio?.Parlamentares?.Parlamentar || [];
-            const arrayLista = Array.isArray(lista) ? lista : [lista];
-
-            return arrayLista
-              .filter((senador) => (senador.IdentificacaoParlamentar?.NomeParlamentar || '').toLowerCase().includes(query.toLowerCase()))
-              .map((senador) => ({
-                id: senador.IdentificacaoParlamentar.CodigoParlamentar,
-                nome: senador.IdentificacaoParlamentar.NomeParlamentar,
-                partido: senador.IdentificacaoParlamentar.SiglaPartidoParlamentar,
-                uf: senador.IdentificacaoParlamentar.UfParlamentar,
-                foto: senador.IdentificacaoParlamentar.UrlFotoParlamentar,
-                cargo: 'Senador',
-                link: `/senador/${senador.IdentificacaoParlamentar.CodigoParlamentar}`,
-                origem: 'senado',
-              }));
-          })
+        const senadoresReq = getSenadoresAtuais()
+          .then((senadores) => senadores.map((senador) => ({
+            id: senador.id,
+            nome: senador.nome,
+            partido: senador.partido,
+            uf: senador.uf,
+            foto: senador.foto,
+            cargo: 'Senador',
+            link: `/senador/${senador.id}`,
+            origem: 'senado',
+          })))
           .catch(() => []);
 
         const [deputados, senadores] = await Promise.all([deputadosReq, senadoresReq]);
-        setPoliticianResults([...senadores, ...deputados]);
+        const filteredPoliticians = filterAndSortByFields(
+          [...senadores, ...deputados],
+          query,
+          [
+            (politico) => politico.nome,
+            (politico) => politico.partido,
+            (politico) => politico.uf,
+            (politico) => politico.cargo,
+            (politico) => (politico.origem === 'camara' ? 'Câmara dos Deputados' : 'Senado Federal'),
+          ]
+        ).slice(0, 30);
+
+        setPoliticianResults(filteredPoliticians);
       } catch (err) {
         console.error('Erro crítico na busca:', err);
         setError(true);

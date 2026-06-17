@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   buildDeputyAnnualExpenseSummary,
+  fetchDeputyYearSummaries,
   getLoggedAdminEmail,
   testAnnualSummaryWriteAccess,
   upsertDeputyYearSummary,
@@ -27,6 +28,55 @@ const statusLabels = {
   recusado: 'Recusado',
 };
 
+const DEFAULT_SYNC_PROGRESS = { current: 0, total: 0, success: 0, failed: 0, skipped: 0 };
+
+const getFailureStorageKey = (year) => `fiscaliza_sync_failures_${year}`;
+
+const readStoredSyncFailures = (year) => {
+  if (typeof window === 'undefined') return [];
+
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(getFailureStorageKey(year)) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveStoredSyncFailures = (year, failures) => {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(getFailureStorageKey(year), JSON.stringify(failures));
+};
+
+const clearStoredSyncFailures = (year) => {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(getFailureStorageKey(year));
+};
+
+const getSyncModeLabel = (mode) => {
+  if (mode === 'all') return 'Reprocessar tudo';
+  if (mode === 'failed') return 'Tentar falhas';
+  return 'Apenas faltantes';
+};
+
+const getSyncButtonLabel = (mode) => {
+  if (mode === 'all') return 'Reprocessar ano';
+  if (mode === 'failed') return 'Tentar falhas';
+  return 'Sincronizar faltantes';
+};
+
+const getSyncConfirmationMessage = ({ mode, year, failureCount }) => {
+  if (mode === 'all') {
+    return `Reprocessar todos os deputados em ${year}? Isso atualiza ou sobrescreve os resumos já salvos e pode demorar alguns minutos.`;
+  }
+
+  if (mode === 'failed') {
+    return `Tentar novamente ${failureCount} falha(s) do ano ${year}? Deputados já salvos fora dessa lista não serão reprocessados.`;
+  }
+
+  return `Sincronizar apenas deputados faltantes em ${year}? O FISCALIZA vai pular quem já está salvo no Supabase.`;
+};
+
 const AdminCorrectionsPage = () => {
   const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [session, setSession] = useState(() => getAdminSession());
@@ -35,10 +85,13 @@ const AdminCorrectionsPage = () => {
   const [message, setMessage] = useState('');
   const [filter, setFilter] = useState('todos');
   const [syncYear, setSyncYear] = useState('2024');
+  const [syncMode, setSyncMode] = useState('missing');
   const [syncing, setSyncing] = useState(false);
-  const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0, success: 0, failed: 0 });
+  const [syncProgress, setSyncProgress] = useState(DEFAULT_SYNC_PROGRESS);
   const [syncMessage, setSyncMessage] = useState('');
   const [syncError, setSyncError] = useState('');
+  const [savedSummaryCount, setSavedSummaryCount] = useState(null);
+  const [lastFailures, setLastFailures] = useState(() => readStoredSyncFailures('2024'));
   const adminEmail = getLoggedAdminEmail();
 
   const loadCorrections = async () => {
@@ -62,6 +115,26 @@ const AdminCorrectionsPage = () => {
   useEffect(() => {
     if (session) loadCorrections();
   }, [session]);
+
+  useEffect(() => {
+    setLastFailures(readStoredSyncFailures(syncYear));
+    if (!session) return;
+
+    let ignore = false;
+    setSavedSummaryCount(null);
+
+    fetchDeputyYearSummaries(syncYear)
+      .then((result) => {
+        if (!ignore) setSavedSummaryCount(result.data.length);
+      })
+      .catch(() => {
+        if (!ignore) setSavedSummaryCount(null);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [session, syncYear]);
 
   const filteredItems = useMemo(() => {
     if (filter === 'todos') return items;
@@ -121,15 +194,21 @@ const AdminCorrectionsPage = () => {
   };
 
   const syncAnnualSummaries = async () => {
+    const storedFailures = readStoredSyncFailures(syncYear);
+    if (syncMode === 'failed' && storedFailures.length === 0) {
+      setSyncError('Não há falhas salvas para tentar novamente neste ano.');
+      return;
+    }
+
     const confirmed = window.confirm(
-      `Sincronizar despesas de todos os deputados em ${syncYear}? Isso usa apenas APIs gratuitas, mas pode demorar alguns minutos.`
+      getSyncConfirmationMessage({ mode: syncMode, year: syncYear, failureCount: storedFailures.length })
     );
     if (!confirmed) return;
 
     setSyncing(true);
     setSyncMessage('');
     setSyncError('');
-    setSyncProgress({ current: 0, total: 0, success: 0, failed: 0 });
+    setSyncProgress(DEFAULT_SYNC_PROGRESS);
 
     try {
       setSyncMessage('Testando permissão de escrita no Supabase...');
@@ -137,15 +216,42 @@ const AdminCorrectionsPage = () => {
       setSyncMessage('Permissão confirmada. Buscando lista oficial de deputados...');
 
       const deputados = await getAllDeputadosList();
-      setSyncProgress({ current: 0, total: deputados.length, success: 0, failed: 0 });
-      setSyncMessage('Sincronização em andamento. Pode levar alguns minutos.');
+      const existingResult = await fetchDeputyYearSummaries(syncYear).catch(() => ({ data: [] }));
+      const savedIds = new Set((existingResult.data || []).map((summary) => String(summary.deputado_id)));
+      const failedIds = new Set(storedFailures.map((failure) => String(failure.id)));
+      const targetDeputies = deputados.filter((deputado) => {
+        const deputyId = String(deputado.id || deputado?.ultimoStatus?.id || '');
+        if (syncMode === 'all') return true;
+        if (syncMode === 'failed') return failedIds.has(deputyId);
+        return !savedIds.has(deputyId);
+      });
+      const skipped = syncMode === 'missing' ? deputados.length - targetDeputies.length : 0;
+
+      setSavedSummaryCount(savedIds.size);
+      setSyncProgress({ ...DEFAULT_SYNC_PROGRESS, total: targetDeputies.length, skipped });
+
+      if (targetDeputies.length === 0) {
+        setSyncMessage(
+          syncMode === 'failed'
+            ? 'Nenhum deputado da lista de falhas foi encontrado na lista oficial atual.'
+            : 'Nada a sincronizar: todos os deputados encontrados já têm resumo salvo para este ano.'
+        );
+        clearStoredSyncFailures(syncYear);
+        setLastFailures([]);
+        return;
+      }
+
+      setSyncMessage(
+        `Sincronização em andamento no modo "${getSyncModeLabel(syncMode)}". Pode levar alguns minutos.`
+      );
 
       let success = 0;
       let failed = 0;
       let firstError = '';
+      const failures = [];
 
-      for (let index = 0; index < deputados.length; index += 1) {
-        const deputado = deputados[index];
+      for (let index = 0; index < targetDeputies.length; index += 1) {
+        const deputado = targetDeputies[index];
         try {
           const despesas = await getDeputadoDespesas(deputado.id, syncYear);
           const summary = buildDeputyAnnualExpenseSummary({ deputado, despesas, ano: syncYear });
@@ -154,14 +260,39 @@ const AdminCorrectionsPage = () => {
         } catch (error) {
           console.error('Erro ao sincronizar deputado:', deputado.nome, error);
           if (!firstError) firstError = `${deputado.nome}: ${error.message}`;
+          failures.push({
+            id: String(deputado.id || deputado?.ultimoStatus?.id || ''),
+            nome: deputado.nome || deputado?.ultimoStatus?.nomeEleitoral || 'Deputado sem nome',
+            partido: deputado.siglaPartido || deputado?.ultimoStatus?.siglaPartido || '',
+            uf: deputado.siglaUf || deputado?.ultimoStatus?.siglaUf || '',
+            error: error.message || 'Falha desconhecida',
+            failedAt: new Date().toISOString(),
+          });
           failed += 1;
         }
 
-        setSyncProgress({ current: index + 1, total: deputados.length, success, failed });
+        setSyncProgress({ current: index + 1, total: targetDeputies.length, success, failed, skipped });
         await new Promise((resolve) => setTimeout(resolve, 150));
       }
 
-      setSyncMessage(`Sincronização concluída: ${success} resumos salvos, ${failed} falhas.`);
+      if (failures.length > 0) {
+        saveStoredSyncFailures(syncYear, failures);
+        setLastFailures(failures);
+      } else {
+        clearStoredSyncFailures(syncYear);
+        setLastFailures([]);
+      }
+
+      setSavedSummaryCount((current) => {
+        if (syncMode === 'all') return success;
+        if (typeof current === 'number') return current + success;
+        return null;
+      });
+      setSyncMessage(
+        `Sincronização concluída: ${success} resumos salvos, ${failed} falhas${
+          skipped ? `, ${skipped} já estavam salvos e foram pulados` : ''
+        }.`
+      );
       if (firstError) {
         setSyncError(`Primeiro erro encontrado: ${firstError}`);
       }
@@ -284,9 +415,52 @@ const AdminCorrectionsPage = () => {
                     <option key={year} value={year}>{year}</option>
                   ))}
                 </select>
-                <Button onClick={syncAnnualSummaries} disabled={syncing}>
-                  {syncing ? 'Sincronizando...' : 'Sincronizar ano'}
+                <select
+                  value={syncMode}
+                  onChange={(event) => setSyncMode(event.target.value)}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  disabled={syncing}
+                >
+                  <option value="missing">Apenas faltantes</option>
+                  <option value="failed">Tentar falhas</option>
+                  <option value="all">Reprocessar tudo</option>
+                </select>
+                <Button onClick={syncAnnualSummaries} disabled={syncing || (syncMode === 'failed' && lastFailures.length === 0)}>
+                  {syncing ? 'Sincronizando...' : getSyncButtonLabel(syncMode)}
                 </Button>
+                {lastFailures.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      clearStoredSyncFailures(syncYear);
+                      setLastFailures([]);
+                      if (syncMode === 'failed') setSyncMode('missing');
+                    }}
+                    disabled={syncing}
+                  >
+                    Limpar falhas
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs font-bold uppercase text-gray-500">Resumos salvos no ano</p>
+                <p className="mt-1 text-lg font-bold text-gray-900">
+                  {savedSummaryCount === null ? 'Consultando...' : savedSummaryCount}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs font-bold uppercase text-gray-500">Falhas guardadas</p>
+                <p className="mt-1 text-lg font-bold text-gray-900">{lastFailures.length}</p>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs font-bold uppercase text-gray-500">Modo recomendado</p>
+                <p className="mt-1 text-sm font-semibold text-gray-900">
+                  Apenas faltantes, para economizar chamadas e tempo.
+                </p>
               </div>
             </div>
 
@@ -304,12 +478,26 @@ const AdminCorrectionsPage = () => {
                         style={{ width: `${Math.round((syncProgress.current / syncProgress.total) * 100)}%` }}
                       />
                     </div>
+                    {syncProgress.skipped > 0 && (
+                      <p className="mt-2 text-xs text-gray-500">
+                        {syncProgress.skipped} deputados já estavam salvos e foram pulados nesta rodada.
+                      </p>
+                    )}
                   </>
                 )}
                 {syncMessage && <p className="mt-3">{syncMessage}</p>}
                 {syncError && (
                   <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-red-700">
                     {syncError}
+                  </div>
+                )}
+                {lastFailures.length > 0 && !syncing && (
+                  <div className="mt-3 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-yellow-900">
+                    <p className="font-semibold">Falhas salvas para retentativa:</p>
+                    <p className="mt-1 text-xs">
+                      {lastFailures.slice(0, 6).map((failure) => failure.nome).join(', ')}
+                      {lastFailures.length > 6 ? ` e mais ${lastFailures.length - 6}` : ''}.
+                    </p>
                   </div>
                 )}
               </div>

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AusteritySealPanel from '@/components/AusteritySealPanel';
+import CitizenSummaryPanel from '@/components/CitizenSummaryPanel';
 import ExpenseComparisonPanel from '@/components/ExpenseComparisonPanel';
 import ProfileAttentionPanel from '@/components/ProfileAttentionPanel';
 import SensitiveCeapPanel from '@/components/SensitiveCeapPanel';
@@ -232,6 +233,15 @@ const PoliticianProfilePage = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
           <AusteritySealPanel seal={austeritySeal} />
+        </div>
+
+        <div className="mb-6">
+          <CitizenSummaryPanel
+            metrics={metrics}
+            attentionPoints={attentionPoints}
+            expenseComparison={expenseComparison}
+            ano={anoSelecionado}
+          />
         </div>
 
         <Tabs defaultValue="indicadores" className="w-full">

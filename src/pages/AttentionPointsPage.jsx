@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, ExternalLink, Filter, Loader2, Search, ShieldAlert } from 'lucide-react';
+import AnnualCacheEmptyState from '@/components/AnnualCacheEmptyState';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { polishText } from '@/lib/display-text';
@@ -24,7 +25,28 @@ const typeLabels = {
   supplier_concentration: 'Concentração em fornecedor',
   above_average_spending: 'Acima da média',
   sensitive_category_share: 'Categoria sensível',
+  unusually_low_spending: 'Gasto muito baixo',
+  possible_partial_mandate: 'Possível mandato parcial',
+  missing_expense_data: 'Ausência de dados',
 };
+
+const typeDescriptions = {
+  supplier_concentration: 'Um fornecedor concentrou parte relevante das despesas declaradas.',
+  above_average_spending: 'O gasto total ficou acima da média da base sincronizada.',
+  sensitive_category_share: 'Uma categoria sensível teve peso alto dentro do total anual.',
+  unusually_low_spending: 'O gasto ficou muito abaixo da média e merece conferência de contexto.',
+  possible_partial_mandate: 'Poucos registros podem indicar mandato parcial, licença, suplência ou baixo uso da cota.',
+  missing_expense_data: 'Nenhuma despesa apareceu no resumo sincronizado para o ano.',
+};
+
+const typeOrder = [
+  'above_average_spending',
+  'sensitive_category_share',
+  'supplier_concentration',
+  'unusually_low_spending',
+  'possible_partial_mandate',
+  'missing_expense_data',
+];
 
 const deputyPhotoFallback = 'https://www.camara.leg.br/tema/assets/images/foto-deputado-sem-foto.png';
 
@@ -122,6 +144,7 @@ const AttentionPointsPage = () => {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [levelFilter, setLevelFilter] = useState('');
   const [sourceMode, setSourceMode] = useState('supabase');
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const load = async () => {
@@ -168,7 +191,7 @@ const AttentionPointsPage = () => {
     };
 
     load();
-  }, [year]);
+  }, [reloadKey, year]);
 
   const baseStatus = useMemo(() => getAnnualSummaryBaseStatus(summaries), [summaries]);
   const points = useMemo(() => buildSpendingAttentionPoints(summaries), [summaries]);
@@ -185,6 +208,25 @@ const AttentionPointsPage = () => {
       .filter((point) => !categoryFilter || point.categoryId === categoryFilter)
       .filter((point) => !levelFilter || point.level === levelFilter);
   }, [categoryFilter, levelFilter, partyFilter, points, search, stateFilter, typeFilter]);
+  const pointsByType = useMemo(
+    () => typeOrder.map((type) => ({
+      type,
+      label: typeLabels[type],
+      description: typeDescriptions[type],
+      count: filteredPoints.filter((point) => point.type === type).length,
+      total: points.filter((point) => point.type === type).length,
+    })),
+    [filteredPoints, points]
+  );
+  const hasNoBase = !loading && summaries.length === 0;
+  const clearFilters = () => {
+    setSearch('');
+    setStateFilter('');
+    setPartyFilter('');
+    setTypeFilter('');
+    setCategoryFilter('');
+    setLevelFilter('');
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-16">
@@ -293,14 +335,7 @@ const AttentionPointsPage = () => {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  setSearch('');
-                  setStateFilter('');
-                  setPartyFilter('');
-                  setTypeFilter('');
-                  setCategoryFilter('');
-                  setLevelFilter('');
-                }}
+                onClick={clearFilters}
               >
                 <Filter className="mr-1 h-4 w-4" />
                 Limpar filtros
@@ -330,7 +365,47 @@ const AttentionPointsPage = () => {
           </Card>
         </div>
 
-        {message && (
+        {!loading && points.length > 0 && (
+          <Card className="mb-6 border-yellow-200">
+            <CardContent className="p-5">
+              <div className="mb-4">
+                <h2 className="text-lg font-black text-gray-950">Tipos de ponto de atenção</h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  A separação abaixo ajuda a investigar sem misturar sinais diferentes. Nenhum item é acusação; todos pedem leitura da fonte.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {pointsByType.map((item) => (
+                  <button
+                    key={item.type}
+                    type="button"
+                    onClick={() => setTypeFilter((current) => (current === item.type ? '' : item.type))}
+                    className={`rounded-xl border p-4 text-left transition ${
+                      typeFilter === item.type
+                        ? 'border-yellow-400 bg-yellow-50 shadow-sm'
+                        : 'border-gray-200 bg-white hover:border-yellow-300'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-black text-gray-950">{item.label}</p>
+                        <p className="mt-1 text-xs leading-relaxed text-gray-600">{item.description}</p>
+                      </div>
+                      <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-black text-gray-800">
+                        {item.count}
+                      </span>
+                    </div>
+                    {item.total !== item.count && (
+                      <p className="mt-2 text-xs text-gray-500">{item.total} no total antes dos filtros.</p>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {message && !hasNoBase && (
           <div className="mb-5 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
             {message}
           </div>
@@ -353,9 +428,31 @@ const AttentionPointsPage = () => {
             )}
 
             {filteredPoints.length === 0 && (
-              <div className="rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center text-gray-500">
-                Nenhum ponto de atenção encontrado para os filtros selecionados.
-              </div>
+              hasNoBase ? (
+                <AnnualCacheEmptyState
+                  year={year}
+                  context="attention"
+                  message={message}
+                  onRetry={() => setReloadKey((current) => current + 1)}
+                />
+              ) : points.length === 0 ? (
+                <div className="rounded-xl border border-green-200 bg-green-50 p-12 text-center text-green-900">
+                  <p className="font-bold">Nenhum ponto de atenção pelos critérios atuais.</p>
+                  <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed">
+                    A base de despesas foi carregada, mas os critérios do FISCALIZA não encontraram concentração relevante,
+                    gasto fora da média, categoria sensível com peso alto, poucos registros ou ausência de dados neste recorte.
+                    Isso não é atestado de regularidade; apenas significa que nada foi sinalizado automaticamente.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center text-gray-600">
+                  <p className="font-semibold text-gray-900">Nenhum ponto aparece com os filtros selecionados.</p>
+                  <p className="mt-2 text-sm">A base existe para este ano, mas o recorte atual ficou vazio.</p>
+                  <Button type="button" variant="outline" className="mt-4" onClick={clearFilters}>
+                    Limpar filtros
+                  </Button>
+                </div>
+              )
             )}
           </div>
         )}

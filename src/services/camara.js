@@ -206,15 +206,41 @@ export const getProposicaoByOfficialNumber = async ({ siglaTipo, numero, ano }) 
   });
   const endpoint = `/proposicoes?${params.toString()}`;
   const raw = await fetchCamara(endpoint);
-  const data = raw.data?.dados?.[0] || null;
+  const summary = raw.data?.dados?.[0] || null;
 
-  if (data) {
-    data.__meta = {
-      fetchedAt: raw.fetchedAt,
-      sourceName: raw.sourceName,
-      sourceUrl: raw.sourceUrl,
+  if (!summary) return null;
+
+  let detail = null;
+  let detailMeta = null;
+  try {
+    const detailRaw = await fetchCamara(`/proposicoes/${encodeURIComponent(summary.id)}`);
+    detail = detailRaw.data?.dados || null;
+    detailMeta = {
+      fetchedAt: detailRaw.fetchedAt,
+      sourceName: detailRaw.sourceName,
+      sourceUrl: detailRaw.sourceUrl,
     };
+  } catch (err) {
+    console.warn('[CAMARA API] Nao foi possivel carregar o detalhe da proposicao.', {
+      siglaTipo,
+      numero,
+      ano,
+      id: summary.id,
+      error: err,
+    });
   }
+
+  const data = {
+    ...summary,
+    ...(detail || {}),
+    __meta: {
+      fetchedAt: detailMeta?.fetchedAt || raw.fetchedAt,
+      sourceName: detailMeta?.sourceName || raw.sourceName,
+      sourceUrl: detailMeta?.sourceUrl || raw.sourceUrl,
+      searchSourceUrl: raw.sourceUrl,
+      detailSourceUrl: detailMeta?.sourceUrl || '',
+    },
+  };
 
   return data;
 };
@@ -248,7 +274,9 @@ export const getVotacaoVotos = async (id) => {
     ...(data.__meta || {}),
     sourceUrl: `https://dadosabertos.camara.leg.br/api/v2/votacoes/${id}/votos`,
   };
-  return data.map(normalizeDeputyVoteRecord);
+  const normalized = data.map(normalizeDeputyVoteRecord);
+  normalized.__meta = data.__meta;
+  return normalized;
 };
 
 export const getDeputadoRelatorias = async (id, ano) => {

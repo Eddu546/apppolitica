@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, FileText, Loader2, Users, Vote } from 'lucide-react';
+import { ArrowLeft, ExternalLink, FileText, Info, Loader2, Users, Vote } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,6 +12,7 @@ import {
 } from '@/services/camara';
 import { findMajorAgendaByOfficialNumber } from '@/lib/major-agendas';
 import { polishText } from '@/lib/display-text';
+import { describeVotingForCitizen } from '@/lib/vote-highlights';
 
 const voteGroups = [
   { id: 'sim', label: 'Votaram sim' },
@@ -62,6 +63,65 @@ const getCamaraPortalUrl = (proposicao) =>
   proposicao?.id
     ? `https://www.camara.leg.br/propostas-legislativas/${proposicao.id}`
     : 'https://www.camara.leg.br/proposicoesWeb/';
+
+const getTechnicalUrl = (path = '') => `https://dadosabertos.camara.leg.br/api/v2${path}`;
+
+const getStatusText = (proposicao) =>
+  proposicao?.statusProposicao?.descricaoSituacao ||
+  proposicao?.statusProposicao?.descricaoTramitacao ||
+  proposicao?.ultimoStatus?.descricaoSituacao ||
+  proposicao?.ultimoStatus?.descricaoTramitacao ||
+  'Não informada pela fonte';
+
+const getProcedureText = (proposicao) =>
+  proposicao?.statusProposicao?.despacho ||
+  proposicao?.statusProposicao?.descricaoTramitacao ||
+  proposicao?.ultimoStatus?.despacho ||
+  proposicao?.ultimoStatus?.descricaoTramitacao ||
+  'A Câmara não retornou um resumo de tramitação nesta consulta.';
+
+const formatAuthor = (autor = {}) => {
+  const name = autor.nome || autor.nomeAutor || autor.nomeCivil || 'Autor não informado';
+  const party = autor.siglaPartido ? ` (${autor.siglaPartido}/${autor.siglaUf || '-'})` : '';
+  return `${name}${party}`;
+};
+
+const getVotingOfficialUrl = (voting = {}) =>
+  voting.uri || (voting.id ? getTechnicalUrl(`/votacoes/${encodeURIComponent(voting.id)}`) : '');
+
+const buildParticipantSummary = (votacoes = []) => {
+  const byDeputy = new Map();
+
+  votacoes.forEach((voting) => {
+    (voting.votes || []).forEach((vote) => {
+      const key = vote.deputyId || `${vote.name}-${vote.party}-${vote.state}`;
+      if (!key) return;
+
+      const current =
+        byDeputy.get(key) || {
+          deputyId: vote.deputyId,
+          name: vote.name || 'Nome não informado',
+          party: vote.party || '',
+          state: vote.state || '',
+          total: 0,
+          sim: 0,
+          nao: 0,
+          abstencao: 0,
+          obstrucao: 0,
+          outros: 0,
+          lastVote: '',
+        };
+
+      const group = normalizeVoteGroup(vote.vote);
+      current[group] += 1;
+      current.total += 1;
+      current.lastVote = vote.vote || current.lastVote;
+      byDeputy.set(key, current);
+    });
+  });
+
+  return Array.from(byDeputy.values()).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+};
 
 const VoteNames = ({ title, votes }) => (
   <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
@@ -128,26 +188,271 @@ const AgendaSummaryPanel = ({ agenda, officialLabel }) => {
   );
 };
 
-const VotingCard = ({ voting }) => {
+const OfficialPropositionPanel = ({ proposicao, autores, officialLabel }) => (
+  <Card>
+    <CardContent className="p-5">
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <div className="mb-2 flex items-center gap-2">
+            <FileText className="h-5 w-5 text-yellow-600" />
+            <h2 className="font-black text-gray-950">Dados oficiais da proposição</h2>
+          </div>
+          <p className="text-sm leading-relaxed text-gray-600">
+            Esta seção usa a consulta oficial da Câmara para o número {officialLabel}. Quando algum campo não aparece, o FISCALIZA mantém a lacuna visível.
+          </p>
+        </div>
+        {proposicao?.id && (
+          <div className="flex flex-wrap gap-2">
+            <a href={getCamaraPortalUrl(proposicao)} target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm">
+                Portal da Câmara <ExternalLink className="ml-2 h-4 w-4" />
+              </Button>
+            </a>
+            <a href={proposicao.__meta?.detailSourceUrl || getTechnicalUrl(`/proposicoes/${proposicao.id}`)} target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm">
+                Dados técnicos <ExternalLink className="ml-2 h-4 w-4" />
+              </Button>
+            </a>
+          </div>
+        )}
+      </div>
+
+      {proposicao ? (
+        <>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+              <p className="text-xs font-bold uppercase text-gray-500">Situação atual</p>
+              <p className="mt-1 font-black text-gray-950">{polishText(getStatusText(proposicao))}</p>
+            </div>
+            <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+              <p className="text-xs font-bold uppercase text-gray-500">Apresentação</p>
+              <p className="mt-1 font-black text-gray-950">{formatDate(proposicao.dataApresentacao)}</p>
+            </div>
+            <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+              <p className="text-xs font-bold uppercase text-gray-500">Autores retornados</p>
+              <p className="mt-1 font-black text-gray-950">{autores.length || 'Fonte não retornou'}</p>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-lg border border-gray-100 bg-white p-4">
+            <p className="text-xs font-bold uppercase text-gray-500">Ementa oficial</p>
+            <p className="mt-2 text-sm leading-relaxed text-gray-700">{polishText(proposicao.ementa || 'Ementa não retornada pela Câmara nesta consulta.')}</p>
+          </div>
+
+          <div className="mt-4 rounded-lg border border-gray-100 bg-white p-4">
+            <p className="text-xs font-bold uppercase text-gray-500">Tramitação resumida</p>
+            <p className="mt-2 text-sm leading-relaxed text-gray-700">{polishText(getProcedureText(proposicao))}</p>
+          </div>
+
+          <div className="mt-4">
+            <p className="mb-2 text-xs font-bold uppercase text-gray-500">Autor ou autores</p>
+            {autores.length ? (
+              <div className="flex flex-wrap gap-2">
+                {autores.slice(0, 16).map((autor, index) => (
+                  <span key={`${autor.nome || autor.nomeAutor}-${index}`} className="rounded-full bg-yellow-50 px-3 py-1 text-sm font-bold text-yellow-900 ring-1 ring-yellow-200">
+                    {formatAuthor(autor)}
+                  </span>
+                ))}
+                {autores.length > 16 && (
+                  <span className="rounded-full bg-gray-100 px-3 py-1 text-sm font-bold text-gray-600">+ {autores.length - 16} autores</span>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">A fonte oficial não retornou autores nesta consulta.</p>
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-950">
+          A Câmara não retornou uma proposição com esse número oficial na consulta atual.
+        </div>
+      )}
+    </CardContent>
+  </Card>
+);
+
+const ParticipantsPanel = ({ votacoes }) => {
+  const participants = buildParticipantSummary(votacoes);
+  const totalVoteRecords = votacoes.reduce((sum, voting) => sum + (voting.votes || []).length, 0);
+  const parties = new Set(participants.map((item) => item.party).filter(Boolean)).size;
+  const states = new Set(participants.map((item) => item.state).filter(Boolean)).size;
+
+  return (
+    <Card id="deputados-participantes">
+      <CardContent className="p-5">
+        <div className="mb-4 flex items-center gap-2">
+          <Users className="h-5 w-5 text-yellow-600" />
+          <h2 className="font-black text-gray-950">Deputados que aparecem nas votações retornadas</h2>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-4">
+          <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+            <p className="text-xs font-bold uppercase text-gray-500">Nomes únicos</p>
+            <p className="text-2xl font-black text-gray-950">{participants.length}</p>
+          </div>
+          <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+            <p className="text-xs font-bold uppercase text-gray-500">Registros de voto</p>
+            <p className="text-2xl font-black text-gray-950">{totalVoteRecords}</p>
+          </div>
+          <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+            <p className="text-xs font-bold uppercase text-gray-500">Partidos</p>
+            <p className="text-2xl font-black text-gray-950">{parties}</p>
+          </div>
+          <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+            <p className="text-xs font-bold uppercase text-gray-500">Estados</p>
+            <p className="text-2xl font-black text-gray-950">{states}</p>
+          </div>
+        </div>
+
+        {participants.length ? (
+          <div className="mt-4 max-h-96 overflow-auto rounded-lg border border-gray-100">
+            <table className="w-full min-w-[680px] text-left text-sm">
+              <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                <tr>
+                  <th className="px-4 py-3">Deputado</th>
+                  <th className="px-4 py-3">Partido/UF</th>
+                  <th className="px-4 py-3">Participações</th>
+                  <th className="px-4 py-3">Sim</th>
+                  <th className="px-4 py-3">Não</th>
+                  <th className="px-4 py-3">Abstenção</th>
+                  <th className="px-4 py-3">Obstrução</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {participants.slice(0, 120).map((item) => (
+                  <tr key={item.deputyId || `${item.name}-${item.party}-${item.state}`}>
+                    <td className="px-4 py-3 font-bold text-gray-950">{item.name}</td>
+                    <td className="px-4 py-3 text-gray-600">{item.party || '-'} / {item.state || '-'}</td>
+                    <td className="px-4 py-3 text-gray-700">{item.total}</td>
+                    <td className="px-4 py-3 text-green-700">{item.sim}</td>
+                    <td className="px-4 py-3 text-red-700">{item.nao}</td>
+                    <td className="px-4 py-3 text-gray-700">{item.abstencao}</td>
+                    <td className="px-4 py-3 text-gray-700">{item.obstrucao}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-950">
+            Nenhum nome individual foi retornado pelo endpoint oficial de votos nominais para as votações carregadas.
+          </div>
+        )}
+
+        {participants.length > 120 && (
+          <p className="mt-3 text-xs text-gray-500">A lista curta mostra os 120 primeiros nomes em ordem alfabética para manter a página leve.</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+const SourceMethodPanel = ({ proposicao, votacoes, officialLabel, type, number, year }) => {
+  const searchParams = new URLSearchParams({
+    siglaTipo: String(type || '').toUpperCase(),
+    numero: String(number || ''),
+    ano: String(year || ''),
+  });
+  const endpoints = [
+    {
+      label: 'Busca por número oficial',
+      url: proposicao?.__meta?.searchSourceUrl || getTechnicalUrl(`/proposicoes?${searchParams.toString()}`),
+    },
+    ...(proposicao?.id
+      ? [
+          { label: 'Detalhe da proposição', url: proposicao.__meta?.detailSourceUrl || getTechnicalUrl(`/proposicoes/${proposicao.id}`) },
+          { label: 'Autores', url: getTechnicalUrl(`/proposicoes/${proposicao.id}/autores`) },
+          { label: 'Votações vinculadas', url: getTechnicalUrl(`/proposicoes/${proposicao.id}/votacoes`) },
+        ]
+      : []),
+    ...(votacoes[0]?.id ? [{ label: 'Votos nominais por votação', url: getTechnicalUrl(`/votacoes/${votacoes[0].id}/votos`) }] : []),
+  ];
+
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="mb-4 flex items-center gap-2">
+          <Info className="h-5 w-5 text-yellow-600" />
+          <h2 className="font-black text-gray-950">Fonte e método</h2>
+        </div>
+        <p className="text-sm leading-relaxed text-gray-600">
+          Os dados abaixo vêm da Câmara dos Deputados - Dados Abertos. O FISCALIZA usa o número oficial {officialLabel}, busca a proposição, consulta autores, votações vinculadas e, para cada votação, tenta carregar os votos nominais individuais.
+        </p>
+        <div className="mt-4 grid gap-2">
+          {endpoints.map((item) => (
+            <a key={item.label} href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 hover:border-yellow-300 hover:text-yellow-900">
+              <span>{item.label}</span>
+              <ExternalLink className="h-4 w-4 shrink-0" />
+            </a>
+          ))}
+        </div>
+        <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm leading-relaxed text-yellow-950">
+          Nem toda votação de uma pauta é nominal. Votações simbólicas ou procedimentais podem aparecer sem lista individual de deputados.
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+const VotingCard = ({ voting, agenda, officialLabel }) => {
   const grouped = groupVotes(voting.votes);
+  const votingInfo = describeVotingForCitizen(voting);
+  const visibleTitle = agenda
+    ? `${agenda.apelido_pauta} (${officialLabel})`
+    : polishText(votingInfo.title || voting.descricao || voting.id);
+  const matterLabel = votingInfo.matter?.label || officialLabel;
+  const sourceUrl = getVotingOfficialUrl(voting);
+  const voteSourceUrl = voting.votes?.__meta?.sourceUrl || (voting.id ? getTechnicalUrl(`/votacoes/${voting.id}/votos`) : '');
 
   return (
     <Card>
       <CardContent className="p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase text-gray-500">Votação nominal</p>
-            <h2 className="mt-1 text-lg font-black text-gray-950">{polishText(voting.descricao || voting.id)}</h2>
+            <p className="text-xs font-bold uppercase text-gray-500">{polishText(votingInfo.subtitle || 'Votação nominal')}</p>
+            <h2 className="mt-1 text-lg font-black text-gray-950">{polishText(visibleTitle)}</h2>
             <p className="mt-2 text-sm text-gray-600">
               Data: {formatDate(voting.dataHoraRegistro || voting.data)}. Resultado: {polishText(voting.aprovacao || voting.resultado || 'não informado')}.
             </p>
+            <p className="mt-2 text-sm text-gray-700">
+              Matéria mostrada: <strong>{polishText(matterLabel)}</strong>. Esta votação foi retornada pela Câmara como vinculada à proposição consultada.
+            </p>
           </div>
-          {voting.uri && (
-            <a href={voting.uri} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-bold text-blue-600 hover:underline">
-              Fonte <ExternalLink className="h-4 w-4" />
+          <div className="flex flex-wrap gap-2">
+            <a href="#deputados-participantes">
+              <Button variant="outline" size="sm">Ver participantes</Button>
             </a>
-          )}
+            {sourceUrl && (
+              <a href={sourceUrl} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" size="sm">
+                  Fonte <ExternalLink className="ml-2 h-4 w-4" />
+                </Button>
+              </a>
+            )}
+            {voteSourceUrl && (
+              <a href={voteSourceUrl} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" size="sm">
+                  Votos técnicos <ExternalLink className="ml-2 h-4 w-4" />
+                </Button>
+              </a>
+            )}
+          </div>
         </div>
+
+        <div className="mt-4 rounded-lg border border-gray-100 bg-gray-50 p-3">
+          <p className="text-xs font-bold uppercase text-gray-500">Descrição oficial da votação</p>
+          <p className="mt-2 text-sm leading-relaxed text-gray-700">{polishText(votingInfo.rawDescription || voting.descricao || 'Descrição não retornada pela Câmara.')}</p>
+        </div>
+
+        {votingInfo.warnings?.length > 0 && (
+          <div className="mt-4 space-y-2">
+            {votingInfo.warnings.slice(0, 3).map((warning) => (
+              <div key={warning} className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-950">
+                {polishText(warning)}
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
           {voteGroups.map((group) => (
@@ -230,13 +535,13 @@ const AgendaDetailPage = ({ slugOverride = '' }) => {
 
       <div className="border-b bg-white">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <Link to="/pautas" className="mb-6 inline-flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-blue-600">
+          <Link to="/pautas" className="mb-6 inline-flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-yellow-700">
             <ArrowLeft className="h-4 w-4" />
             Voltar para pautas
           </Link>
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm font-bold text-blue-700">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-yellow-200 bg-yellow-50 px-3 py-1 text-sm font-bold text-yellow-900">
                 <FileText className="h-4 w-4" />
                 {officialLabel}
               </div>
@@ -263,7 +568,7 @@ const AgendaDetailPage = ({ slugOverride = '' }) => {
 
         {loading ? (
           <div className="mt-6 flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white px-6 py-16 text-center">
-            <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
+            <Loader2 className="h-10 w-10 animate-spin text-yellow-600" />
             <p className="mt-4 font-bold text-gray-900">Consultando a fonte oficial...</p>
             <p className="mt-2 max-w-xl text-sm text-gray-500">
               A página já mostra o resumo público da pauta acima. Os dados de autores, situação e votações aparecem aqui quando os Dados Abertos da Câmara respondem.
@@ -277,48 +582,9 @@ const AgendaDetailPage = ({ slugOverride = '' }) => {
               </div>
             )}
 
-            <div className="grid gap-4 lg:grid-cols-3">
-              <Card>
-                <CardContent className="p-5">
-                  <p className="text-xs font-bold uppercase text-gray-500">Situação</p>
-                  <p className="mt-1 text-lg font-black text-gray-950">{polishText(proposicao?.statusProposicao?.descricaoSituacao || 'Não informada pela fonte')}</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-5">
-                  <p className="text-xs font-bold uppercase text-gray-500">Apresentação</p>
-                  <p className="mt-1 text-lg font-black text-gray-950">{formatDate(proposicao?.dataApresentacao)}</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-5">
-                  <p className="text-xs font-bold uppercase text-gray-500">Votações encontradas</p>
-                  <p className="mt-1 text-lg font-black text-gray-950">{votacoes.length}</p>
-                </CardContent>
-              </Card>
-            </div>
+            <OfficialPropositionPanel proposicao={proposicao} autores={autores} officialLabel={officialLabel} />
 
-            <Card>
-              <CardContent className="p-5">
-                <div className="mb-4 flex items-center gap-2">
-                  <Users className="h-5 w-5 text-blue-600" />
-                  <h2 className="font-black text-gray-950">Autor ou autores</h2>
-                </div>
-                {autores.length ? (
-                  <div className="flex flex-wrap gap-2">
-                    {autores.map((autor, index) => (
-                      <span key={`${autor.nome}-${index}`} className="rounded-full bg-blue-50 px-3 py-1 text-sm font-bold text-blue-700">
-                        {autor.nome || autor.nomeAutor || 'Autor não informado'}{autor.siglaPartido ? ` (${autor.siglaPartido}/${autor.siglaUf || '-'})` : ''}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500">A fonte oficial não retornou autores nesta consulta.</p>
-                )}
-              </CardContent>
-            </Card>
-
-            <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm leading-relaxed text-blue-950">
+            <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm leading-relaxed text-yellow-950">
               <div className="mb-1 flex items-center gap-2 font-bold">
                 <Vote className="h-4 w-4" />
                 Como ler os votos desta página
@@ -329,7 +595,7 @@ const AgendaDetailPage = ({ slugOverride = '' }) => {
             {votacoes.length ? (
               <div className="space-y-4">
                 {votacoes.map((voting) => (
-                  <VotingCard key={voting.id} voting={voting} />
+                  <VotingCard key={voting.id} voting={voting} agenda={agenda} officialLabel={officialLabel} />
                 ))}
               </div>
             ) : (
@@ -338,14 +604,8 @@ const AgendaDetailPage = ({ slugOverride = '' }) => {
               </div>
             )}
 
-            <Card>
-              <CardContent className="p-5 text-sm text-gray-600">
-                <p className="font-bold text-gray-950">Fonte dos dados</p>
-                <p className="mt-2">
-                  Câmara dos Deputados - Dados Abertos. Consulta por número oficial da proposição, autores, votações relacionadas e votos nominais por votação quando disponíveis.
-                </p>
-              </CardContent>
-            </Card>
+            <ParticipantsPanel votacoes={votacoes} />
+            <SourceMethodPanel proposicao={proposicao} votacoes={votacoes} officialLabel={officialLabel} type={type} number={number} year={year} />
           </div>
         )}
       </main>

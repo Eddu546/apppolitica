@@ -67,7 +67,7 @@ const TrustMetricCard = ({ metric }) => {
   const explanation = polishText(metric.explanationForCitizen || metric.description || 'Método de cálculo não informado.');
   const method = polishText(metric.calculationMethod || metric.description || 'Método de cálculo não informado.');
   const confidence = metric.confidenceLevel || metric.confidence || 'low';
-  const safeSourceUrl = getSafeSourceUrl(metric.sourceUrl);
+  const safeSourceUrl = getSafeSourceUrl(metric.sourcePageUrl || metric.sourceUrl);
 
   return (
     <Card className="shadow-sm border-gray-100 h-full">

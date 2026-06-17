@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
+  Activity,
   BarChart3,
   Building2,
   CheckCircle2,
   ChevronDown,
   ClipboardList,
   FileText,
+  HeartHandshake,
   Home,
   Info,
   Menu,
@@ -32,6 +34,8 @@ const primaryNavigation = [
 ];
 
 const toolNavigation = [
+  { name: 'Apoie', href: '/apoie', icon: HeartHandshake, activePaths: ['/apoie', '/apoiar'] },
+  { name: 'Saúde', href: '/saude', icon: Activity, activePaths: ['/saude', '/status'] },
   { name: 'Alertas', href: '/alertas', icon: ShieldAlert },
   { name: 'Meu roteiro', href: '/meu-roteiro', icon: ClipboardList, activePaths: ['/meu-roteiro', '/meu-dna'] },
   { name: 'Comparar', href: '/comparar', icon: Scale },

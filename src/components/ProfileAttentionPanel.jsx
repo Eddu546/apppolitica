@@ -13,6 +13,9 @@ const typeLabels = {
   supplier_concentration: 'Concentração em fornecedor',
   above_average_spending: 'Acima da média da base',
   sensitive_category_share: 'Categoria sensível',
+  unusually_low_spending: 'Gasto muito baixo',
+  possible_partial_mandate: 'Possível mandato parcial',
+  missing_expense_data: 'Ausência de dados',
 };
 
 const isSafeSourceUrl = (sourceUrl) => sourceUrl && !String(sourceUrl).includes('{');
@@ -27,7 +30,7 @@ const ProfileAttentionPanel = ({ points = [] }) => {
             <div>
               <h3 className="font-bold text-green-950">Nenhum ponto de atenção encontrado</h3>
               <p className="text-sm text-green-800">
-                Pelos critérios atuais do FISCALIZA, não houve alerta de concentração em fornecedor ou gasto acima da média sincronizada para este ano.
+                Pelos critérios atuais do FISCALIZA, não houve sinal automático de concentração, gasto sensível, gasto fora da média ou ausência de dados para este ano.
               </p>
             </div>
           </div>
@@ -73,7 +76,7 @@ const ProfileAttentionPanel = ({ points = [] }) => {
                       <p className="font-black text-gray-900">{formatCurrency(point.total || point.amount || 0)}</p>
                     </div>
                     <div className="rounded-lg bg-gray-50 p-3">
-                      <p className="text-xs font-bold uppercase text-gray-500">Referencia</p>
+                      <p className="text-xs font-bold uppercase text-gray-500">Referência</p>
                       <p className="font-black text-gray-900">
                         {polishText(point.categoryLabel || point.supplier || (point.average ? `Média: ${formatCurrency(point.average)}` : 'Base sincronizada'))}
                       </p>

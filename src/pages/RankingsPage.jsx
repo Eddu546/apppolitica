@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ExternalLink, Loader2, Search, Trophy } from 'lucide-react';
+import { AlertTriangle, Database, ExternalLink, Loader2, Search, Trophy } from 'lucide-react';
+import AnnualCacheEmptyState from '@/components/AnnualCacheEmptyState';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { polishText } from '@/lib/display-text';
@@ -23,6 +24,9 @@ const rankingCategoryOptions = [
   })),
 ];
 
+const EXPECTED_CAMARA_SEATS = 513;
+const RELIABLE_RANKING_THRESHOLD = 450;
+
 const photoFallback = 'https://www.camara.leg.br/tema/assets/images/foto-deputado-sem-foto.png';
 
 const getDeputyPhotoUrl = (id) =>
@@ -33,6 +37,101 @@ const formatPercent = (value) =>
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   })}%`;
+
+const getCoverageLabel = ({ sourceMode, count }) => {
+  if (sourceMode === 'live') return 'Amostra ao vivo';
+  if (sourceMode === 'error') return 'Base indisponível';
+  if (count >= RELIABLE_RANKING_THRESHOLD) return 'Base completa';
+  if (count > 0) return 'Base parcial';
+  return 'Sem base';
+};
+
+const getCoverageStyle = ({ sourceMode, count }) => {
+  if (sourceMode === 'live') return 'border-yellow-300 bg-yellow-50 text-yellow-900';
+  if (sourceMode === 'error' || count === 0) return 'border-red-200 bg-red-50 text-red-800';
+  if (count >= RELIABLE_RANKING_THRESHOLD) return 'border-green-200 bg-green-50 text-green-800';
+  return 'border-yellow-300 bg-yellow-50 text-yellow-900';
+};
+
+const RankingCoveragePanel = ({ sourceMode, sourceMeta, items, year, showCoverage, onToggleCoverage }) => {
+  const totalReference = Number(sourceMeta.totalAvailable || EXPECTED_CAMARA_SEATS);
+  const count = items.length;
+  const coverage = totalReference > 0 ? count / totalReference : 0;
+  const coverageLabel = getCoverageLabel({ sourceMode, count });
+  const style = getCoverageStyle({ sourceMode, count });
+  const isReliable = sourceMode === 'supabase' && count >= RELIABLE_RANKING_THRESHOLD;
+
+  const modeDescription = sourceMode === 'live'
+    ? 'Os dados foram buscados em tempo real na API oficial porque o cache do Supabase não estava disponível para este ano.'
+    : sourceMode === 'supabase'
+      ? 'Os dados vieram do cache anual salvo no Supabase a partir da API oficial da Câmara.'
+      : 'Não foi possível carregar a base de rankings agora.';
+
+  return (
+    <Card className={`mb-6 border-2 ${style}`}>
+      <CardContent className="p-5">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/80">
+              {isReliable ? <Trophy className="h-6 w-6" /> : <AlertTriangle className="h-6 w-6" />}
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide">Qualidade da base em {year}</p>
+              <h2 className="mt-1 text-2xl font-black text-gray-950">{coverageLabel}</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-gray-700">{modeDescription}</p>
+              <p className="mt-1 max-w-3xl text-sm leading-relaxed text-gray-700">
+                Cobertura atual: <strong>{formatNumber(count)} de {formatNumber(totalReference)}</strong> deputados de referência
+                ({formatPercent(coverage)}).
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 lg:justify-end">
+            <Button type="button" variant="outline" className="border-yellow-300 bg-white text-gray-900" onClick={onToggleCoverage}>
+              <Database className="mr-2 h-4 w-4" />
+              {showCoverage ? 'Ocultar cobertura' : 'Ver cobertura da base'}
+            </Button>
+            <Button asChild className="bg-yellow-400 text-black hover:bg-yellow-300">
+              <Link to="/saude">Abrir saúde</Link>
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/70">
+          <div
+            className={`h-full ${isReliable ? 'bg-green-600' : sourceMode === 'live' ? 'bg-yellow-500' : 'bg-yellow-600'}`}
+            style={{ width: count > 0 ? `${Math.max(2, Math.min(100, coverage * 100))}%` : '0%' }}
+          />
+        </div>
+
+        {showCoverage && (
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg border border-white/70 bg-white p-3">
+              <p className="text-xs font-black uppercase text-gray-500">Critério do FISCALIZA</p>
+              <p className="mt-1 text-sm text-gray-700">
+                Ranking nacional confiável exige pelo menos {formatNumber(RELIABLE_RANKING_THRESHOLD)} deputados sincronizados.
+              </p>
+            </div>
+            <div className="rounded-lg border border-white/70 bg-white p-3">
+              <p className="text-xs font-black uppercase text-gray-500">Origem atual</p>
+              <p className="mt-1 text-sm text-gray-700">
+                {sourceMode === 'live' ? 'API oficial em tempo real, sem cache completo.' : sourceMode === 'supabase' ? 'Supabase, cache anual do FISCALIZA.' : 'Falha de carregamento.'}
+              </p>
+            </div>
+            <div className="rounded-lg border border-white/70 bg-white p-3">
+              <p className="text-xs font-black uppercase text-gray-500">Como interpretar</p>
+              <p className="mt-1 text-sm text-gray-700">
+                {isReliable
+                  ? 'Pode ser lido como comparativo nacional de gastos do ano selecionado.'
+                  : 'Use como amostra ou lista parcial. Não trate como ranking definitivo.'}
+              </p>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
 
 const sortOptions = {
   total_gasto: {
@@ -204,12 +303,16 @@ const RankingsPage = () => {
   const [categoryFilter, setCategoryFilter] = useState('total');
   const [sortBy, setSortBy] = useState('total_gasto');
   const [sourceMode, setSourceMode] = useState('supabase');
+  const [sourceMeta, setSourceMeta] = useState({ totalAvailable: EXPECTED_CAMARA_SEATS, source: 'supabase' });
+  const [showCoverage, setShowCoverage] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       setMessage('');
       setSourceMode('supabase');
+      setSourceMeta({ totalAvailable: EXPECTED_CAMARA_SEATS, source: 'supabase' });
 
       const loadLiveFallback = async (reason) => {
         setSourceMode('live');
@@ -221,6 +324,11 @@ const RankingsPage = () => {
           },
         });
         setItems(liveResult.data || []);
+        setSourceMeta({
+          totalAvailable: liveResult.totalAvailable || EXPECTED_CAMARA_SEATS,
+          limit: liveResult.limit,
+          source: liveResult.source,
+        });
         setMessage(liveResult.message);
       };
 
@@ -228,6 +336,11 @@ const RankingsPage = () => {
         const result = await fetchDeputyYearSummaries(year);
         if (result.ok && result.data?.length) {
           setItems(result.data || []);
+          setSourceMeta({
+            totalAvailable: EXPECTED_CAMARA_SEATS,
+            source: 'supabase',
+            loaded: result.data.length,
+          });
           setMessage('');
         } else if (result.ok) {
           await loadLiveFallback('Nenhum resumo anual foi encontrado no Supabase para este ano.');
@@ -241,6 +354,7 @@ const RankingsPage = () => {
         } catch (fallbackError) {
           console.error('Erro ao carregar rankings ao vivo:', fallbackError);
           setSourceMode('error');
+          setSourceMeta({ totalAvailable: EXPECTED_CAMARA_SEATS, source: 'error' });
           setItems([]);
           setMessage('Não foi possível carregar o cache nem a amostra ao vivo da Câmara agora.');
         }
@@ -250,7 +364,7 @@ const RankingsPage = () => {
     };
 
     load();
-  }, [year]);
+  }, [reloadKey, year]);
 
   const baseStatus = useMemo(() => getAnnualSummaryBaseStatus(items), [items]);
   const states = useMemo(() => [...new Set(items.map((item) => item.uf).filter(Boolean))].sort(), [items]);
@@ -281,6 +395,14 @@ const RankingsPage = () => {
     const dates = filteredItems.map((item) => item.fetched_at).filter(Boolean).sort();
     return dates[dates.length - 1] || null;
   }, [filteredItems]);
+  const hasNoBase = !loading && items.length === 0;
+  const clearFilters = () => {
+    setSearch('');
+    setStateFilter('');
+    setPartyFilter('');
+    setCategoryFilter('total');
+    setSortBy('total_gasto');
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-16">
@@ -309,6 +431,17 @@ const RankingsPage = () => {
       </div>
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {!loading && (
+          <RankingCoveragePanel
+            sourceMode={sourceMode}
+            sourceMeta={sourceMeta}
+            items={items}
+            year={year}
+            showCoverage={showCoverage}
+            onToggleCoverage={() => setShowCoverage((current) => !current)}
+          />
+        )}
+
         <Card className={`mb-6 ${baseStatus.status === 'available' ? 'border-green-200 bg-green-50' : 'border-yellow-200 bg-yellow-50'}`}>
           <CardContent className="p-5">
             <div className="flex items-start gap-3">
@@ -411,7 +544,7 @@ const RankingsPage = () => {
           </CardContent>
         </Card>
 
-        {message && (
+        {message && !hasNoBase && (
           <div className="mb-5 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
             {message}
           </div>
@@ -441,9 +574,22 @@ const RankingsPage = () => {
             )}
 
             {filteredItems.length === 0 && (
-              <div className="rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center text-gray-500">
-                Nenhum resumo anual encontrado para os filtros selecionados.
-              </div>
+              hasNoBase ? (
+                <AnnualCacheEmptyState
+                  year={year}
+                  context="rankings"
+                  message={message}
+                  onRetry={() => setReloadKey((current) => current + 1)}
+                />
+              ) : (
+                <div className="rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center text-gray-600">
+                  <p className="font-semibold text-gray-900">Nenhum deputado encontrado com os filtros selecionados.</p>
+                  <p className="mt-2 text-sm">A base existe para este ano, mas o recorte atual ficou vazio.</p>
+                  <Button type="button" variant="outline" className="mt-4" onClick={clearFilters}>
+                    Limpar filtros
+                  </Button>
+                </div>
+              )
             )}
           </div>
         )}

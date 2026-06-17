@@ -217,4 +217,62 @@ describe('annual summaries', () => {
 
     expect(points.some((point) => point.type === 'sensitive_category_share')).toBe(true);
   });
+
+  it('gera ponto responsavel quando despesas estao ausentes no resumo anual', () => {
+    const points = buildSpendingAttentionPoints([
+      {
+        ano: '2025',
+        deputado_id: '1',
+        nome: 'Deputado Sem Despesa',
+        partido: 'AAA',
+        uf: 'SP',
+        total_gasto: 0,
+        quantidade_despesas: 0,
+        maior_fornecedor_valor: 0,
+      },
+    ]);
+
+    expect(points).toHaveLength(1);
+    expect(points[0]).toMatchObject({
+      type: 'missing_expense_data',
+      level: 'medium',
+      recordCount: 0,
+    });
+    expect(points[0].explanation).toContain('não prova automaticamente');
+  });
+
+  it('gera ponto de possivel mandato parcial apenas como sinal de contexto', () => {
+    const base = Array.from({ length: 450 }, (_, index) => ({
+      ano: '2025',
+      deputado_id: String(index + 2),
+      nome: `Deputado ${index + 2}`,
+      partido: 'AAA',
+      uf: 'SP',
+      total_gasto: 100000,
+      quantidade_despesas: 40,
+      maior_fornecedor_valor: 0,
+    }));
+
+    const points = buildSpendingAttentionPoints([
+      ...base,
+      {
+        ano: '2025',
+        deputado_id: '1',
+        nome: 'Deputado Poucos Registros',
+        partido: 'BBB',
+        uf: 'PB',
+        total_gasto: 3000,
+        quantidade_despesas: 2,
+        maior_fornecedor_valor: 0,
+      },
+    ]);
+
+    const point = points.find((item) => item.type === 'possible_partial_mandate');
+    expect(point).toMatchObject({
+      deputyName: 'Deputado Poucos Registros',
+      level: 'medium',
+      recordCount: 2,
+    });
+    expect(point.explanation).toContain('não é conclusão sobre conduta');
+  });
 });
