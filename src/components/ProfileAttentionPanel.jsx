@@ -1,8 +1,10 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { AlertTriangle, ExternalLink, ShieldCheck } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { polishText } from '@/lib/display-text';
 import { formatCurrency } from '@/lib/legislative-logic';
+import { getReadableSourceUrl, isInternalPath } from '@/lib/official-links';
 
 const levelStyles = {
   high: 'border-red-200 bg-red-50 text-red-700',
@@ -17,8 +19,6 @@ const typeLabels = {
   possible_partial_mandate: 'Possível mandato parcial',
   missing_expense_data: 'Ausência de dados',
 };
-
-const isSafeSourceUrl = (sourceUrl) => sourceUrl && !String(sourceUrl).includes('{');
 
 const ProfileAttentionPanel = ({ points = [] }) => {
   if (!points.length) {
@@ -53,7 +53,10 @@ const ProfileAttentionPanel = ({ points = [] }) => {
         </div>
 
         <div className="space-y-3">
-          {points.map((point) => (
+          {points.map((point) => {
+            const readableSourceUrl = getReadableSourceUrl({ sourceUrl: point.sourceUrl });
+
+            return (
             <div key={point.id} className="rounded-lg border border-yellow-200 bg-white p-4">
               <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3">
                 <div>
@@ -93,19 +96,29 @@ const ProfileAttentionPanel = ({ points = [] }) => {
                   </details>
                 </div>
 
-                {isSafeSourceUrl(point.sourceUrl) && (
-                  <a
-                    href={point.sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:underline"
-                  >
-                    Fonte <ExternalLink className="w-4 h-4" />
-                  </a>
+                {readableSourceUrl && (
+                  isInternalPath(readableSourceUrl) ? (
+                    <Link
+                      to={readableSourceUrl}
+                      className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:underline"
+                    >
+                      Fonte explicada <ExternalLink className="w-4 h-4" />
+                    </Link>
+                  ) : (
+                    <a
+                      href={readableSourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:underline"
+                    >
+                      Fonte oficial <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )
                 )}
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       </CardContent>
     </Card>

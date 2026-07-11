@@ -5,46 +5,14 @@ import { AlertTriangle, CheckCircle2, ExternalLink, FileText, Search, ShieldChec
 import { Button } from '@/components/ui/button';
 import { polishText } from '@/lib/display-text';
 import { MAJOR_AGENDAS, searchMajorAgendas } from '@/lib/major-agendas';
+import {
+  fiscalizaAgendaPath,
+  getCamaraPortalPropositionUrl,
+  getCamaraPortalSearchUrl,
+  parseOfficialNumber,
+} from '@/lib/official-links';
+import { getProposicaoByOfficialNumber } from '@/services/camara';
 import AgendaDetailPage from '@/pages/AgendaDetailPage';
-
-const KNOWN_CAMARA_PROPOSITION_IDS = {
-  'PL 914/2024': '2422697',
-};
-
-const parseOfficialNumber = (value) => {
-  const match = String(value || '').match(/\b(PEC|PLP|PL|MPV|PDL|PRC|REQ)\s*(\d{1,6})\s*\/\s*(\d{4})\b/i);
-  if (!match) return null;
-  return {
-    type: match[1].toUpperCase(),
-    number: match[2],
-    year: match[3],
-  };
-};
-
-const normalizeOfficialNumberLabel = (value) => {
-  const parsed = parseOfficialNumber(value);
-  return parsed ? `${parsed.type} ${parsed.number}/${parsed.year}` : String(value || '');
-};
-
-const camaraPortalUrl = (value) => {
-  const label = normalizeOfficialNumberLabel(value);
-  const knownId = KNOWN_CAMARA_PROPOSITION_IDS[label];
-  if (knownId) return `https://www.camara.leg.br/propostas-legislativas/${knownId}`;
-
-  const params = new URLSearchParams({
-    contextoBusca: 'BuscaGeral',
-    pagina: '1',
-    order: 'relevancia',
-    termo: label,
-  });
-  return `https://www.camara.leg.br/busca-portal?${params.toString()}`;
-};
-
-const fiscalizaAgendaPath = (value) => {
-  const parsed = parseOfficialNumber(value);
-  if (!parsed) return '/pautas';
-  return `/pautas/${parsed.type}-${parsed.number}-${parsed.year}`;
-};
 
 const voteStatusInfo = {
   sim: {
@@ -73,6 +41,72 @@ const StatPill = ({ label, value }) => (
     <p className="mt-1 text-2xl font-black text-gray-950">{value}</p>
   </div>
 );
+
+const OfficialPortalLink = ({ number }) => {
+  const [officialUrl, setOfficialUrl] = useState(getCamaraPortalSearchUrl(number));
+  const [mode, setMode] = useState('search');
+
+  useEffect(() => {
+    const parsed = parseOfficialNumber(number);
+    let active = true;
+
+    if (!parsed) {
+      setOfficialUrl(getCamaraPortalSearchUrl(number));
+      setMode('search');
+      return () => {
+        active = false;
+      };
+    }
+
+    setMode('loading');
+    getProposicaoByOfficialNumber({
+      siglaTipo: parsed.type,
+      numero: parsed.number,
+      ano: parsed.year,
+    })
+      .then((proposicao) => {
+        if (!active) return;
+        if (proposicao?.id) {
+          setOfficialUrl(getCamaraPortalPropositionUrl(proposicao.id));
+          setMode('official');
+        } else {
+          setOfficialUrl(getCamaraPortalSearchUrl(number));
+          setMode('search');
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setOfficialUrl(getCamaraPortalSearchUrl(number));
+        setMode('search');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [number]);
+
+  const label =
+    mode === 'official'
+      ? `Abrir ${number} na Câmara`
+      : mode === 'loading'
+        ? `Localizando ${number}...`
+        : `Buscar ${number} na Câmara`;
+
+  return (
+    <a
+      href={officialUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold ${
+        mode === 'official'
+          ? 'border-blue-200 text-blue-700 hover:bg-blue-50'
+          : 'border-yellow-200 bg-yellow-50 text-yellow-800 hover:bg-yellow-100'
+      }`}
+    >
+      {label} <ExternalLink className="h-4 w-4" />
+    </a>
+  );
+};
 
 const AgendaCard = ({ agenda }) => {
   const voteInfo = voteStatusInfo[agenda.houve_voto_nominal] || voteStatusInfo.parcial;
@@ -123,15 +157,7 @@ const AgendaCard = ({ agenda }) => {
 
         <div className="flex shrink-0 flex-col gap-2 lg:w-64">
           {agenda.numero_proposicao.map((number) => (
-            <a
-              key={number}
-              href={camaraPortalUrl(number)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 px-3 py-2 text-sm font-bold text-blue-700 hover:bg-blue-50"
-            >
-              Abrir {number} na Câmara <ExternalLink className="h-4 w-4" />
-            </a>
+            <OfficialPortalLink key={number} number={number} />
           ))}
           <Link
             to={fiscalizaAgendaPath(agenda.numero_proposicao[0])}
@@ -223,7 +249,7 @@ const MajorAgendasPage = () => {
         </div>
       </section>
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatPill label="Pautas cadastradas" value={totals.all} />
           <StatPill label="Com voto nominal" value={totals.nominal} />
@@ -292,9 +318,10 @@ const MajorAgendasPage = () => {
             <p className="mt-1 text-sm text-gray-500">Tente buscar por apelido, tema ou número oficial como PL 2630/2020.</p>
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 };
 
 export default MajorAgendasPage;
+

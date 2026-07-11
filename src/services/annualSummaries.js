@@ -486,11 +486,34 @@ export const fetchDeputyYearSummaries = async (ano) => {
   return { ok: true, data: data.map(applyPartyCorrectionToSummary) };
 };
 
+export const selectLiveSampleDeputies = (deputados = [], limit = 27) => {
+  const groups = deputados.reduce((acc, deputado) => {
+    const uf = deputado.siglaUf || deputado.uf || 'SEM_UF';
+    if (!acc.has(uf)) acc.set(uf, []);
+    acc.get(uf).push(deputado);
+    return acc;
+  }, new Map());
+  const orderedGroups = Array.from(groups.entries())
+    .sort(([ufA], [ufB]) => ufA.localeCompare(ufB, 'pt-BR'))
+    .map(([, items]) => items.sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR')));
+  const selected = [];
+  let round = 0;
+
+  while (selected.length < limit && orderedGroups.some((group) => group[round])) {
+    orderedGroups.forEach((group) => {
+      if (selected.length < limit && group[round]) selected.push(group[round]);
+    });
+    round += 1;
+  }
+
+  return selected;
+};
+
 export const fetchLiveDeputyYearSummaries = async (ano, options = {}) => {
-  const limit = Number(options.limit || 60);
-  const concurrency = Math.max(1, Math.min(Number(options.concurrency || 4), 6));
+  const limit = Number(options.limit || 27);
+  const concurrency = Math.max(1, Math.min(Number(options.concurrency || 3), 4));
   const deputados = await getAllDeputadosList();
-  const selectedDeputies = deputados.slice(0, limit);
+  const selectedDeputies = selectLiveSampleDeputies(deputados, limit);
   const summaries = [];
 
   let completed = 0;
@@ -530,7 +553,7 @@ export const fetchLiveDeputyYearSummaries = async (ano, options = {}) => {
     limit: selectedDeputies.length,
     data: summaries.map(applyPartyCorrectionToSummary),
     message:
-      `Amostra parcial montada em tempo real com ${summaries.length} de ${deputados.length} deputados retornados pela API oficial. Para ranking nacional definitivo, sincronize o ano completo no Supabase.`,
+      `Amostra parcial montada em tempo real com ${summaries.length} de ${deputados.length} deputados retornados pela API oficial, distribuída entre UFs quando possível. Para ranking nacional definitivo, sincronize o ano completo no Supabase.`,
   };
 };
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildDeputadoMetrics,
-  buildFiscalizationIndex,
+  buildProfileDataCoverage,
   getTopSupplier,
   groupExpensesByMonth,
   groupExpensesByType,
@@ -59,6 +59,49 @@ describe('legislative KPI calculations', () => {
     expect(metrics.votacoesNominais.sourcePageUrl).toBe('/fonte/deputado/204536/votacoes/2025');
   });
 
+  it('prioriza os numeros do portal publico da Camara nos cards de resumo anual', () => {
+    const metrics = buildDeputadoMetrics({
+      proposicoes: [{ siglaTipo: 'PL' }, { siglaTipo: 'REQ' }],
+      discursos: [{ id: 1 }],
+      portalResumo: {
+        propostasAutoria: 588,
+        propostasRelatadas: 42,
+        votacoesNominaisPlenario: 270,
+        discursosPlenario: 27,
+        presencaPlenario: {
+          presencas: 80,
+          ausenciasJustificadas: 5,
+          ausenciasNaoJustificadas: 2,
+        },
+        presencaComissoes: {
+          presencas: 123,
+          ausenciasJustificadas: 1,
+          ausenciasNaoJustificadas: 13,
+        },
+        __meta: {
+          fetchedAt: '2026-06-18T12:00:00.000Z',
+          sourceName: 'Camara dos Deputados - Portal do Deputado',
+          sourceUrl: 'https://www.camara.leg.br/deputados/204536?ano=2024',
+        },
+      },
+    });
+
+    expect(metrics.proposicoes.value).toBe(588);
+    expect(metrics.proposicoes.sourceUrl).toContain('ano=2024');
+    expect(metrics.proposicoes.sourcePageUrl).toBe('');
+    expect(metrics.discursos.value).toBe(27);
+    expect(metrics.votacoesPlenario.value).toBe(270);
+    expect(metrics.relatorias.value).toBe(42);
+    expect(metrics.relatorias.status).toBe('available');
+    expect(metrics.presencaPlenario.value).toBe('80 de 87 dias');
+    expect(metrics.presencaPlenario.breakdown.totalEsperado).toBe(87);
+    expect(metrics.presencaPlenario.details).toContainEqual({ label: 'Total previsto', value: '87 dias' });
+    expect(metrics.presencaComissoes.value).toBe('123 de 137 reunioes');
+    expect(metrics.presencaComissoes.breakdown.totalEsperado).toBe(137);
+    expect(metrics.presenca.value).toBe('Plenario: 80/87 / Comissoes: 123/137');
+    expect(metrics.presenca.status).toBe('available');
+  });
+
   it('agrupa despesas por categoria e por mes sem criar dados artificiais', () => {
     expect(groupExpensesByType(despesas)).toEqual([
       { name: 'DIVULGACAO', value: 500 },
@@ -88,12 +131,28 @@ describe('legislative KPI calculations', () => {
     expect(metrics.presenca.value).toBeNull();
   });
 
-  it('cria indice calculado com aviso de que nao e dado oficial', () => {
+  it('nao transforma falha da fonte em zero oficial', () => {
+    const despesasComErro = [];
+    despesasComErro.__meta = { error: 'Status 503', fetchedAt: '2026-07-10T12:00:00.000Z' };
+    const despesasVazias = [];
+    despesasVazias.__meta = { fetchedAt: '2026-07-10T12:00:00.000Z' };
+
+    const failedMetrics = buildDeputadoMetrics({ despesas: despesasComErro });
+    const emptyMetrics = buildDeputadoMetrics({ despesas: despesasVazias });
+
+    expect(failedMetrics.totalGastoAno.status).toBe('error');
+    expect(failedMetrics.totalGastoAno.value).toBeNull();
+    expect(emptyMetrics.totalGastoAno.status).toBe('available');
+    expect(emptyMetrics.totalGastoAno.value).toBe(0);
+  });
+
+  it('calcula somente a cobertura dos dados, sem avaliar o parlamentar', () => {
     const metrics = buildDeputadoMetrics({ despesas, proposicoes: [{ siglaTipo: 'PL' }] });
-    const index = buildFiscalizationIndex(metrics);
+    const index = buildProfileDataCoverage(metrics);
 
     expect(index.status).toBe('partial');
     expect(index.sourceName).toContain('FISCALIZA');
-    expect(index.warnings.some((warning) => warning.includes('nao pela Camara'))).toBe(true);
+    expect(index.label).toBe('Cobertura dos dados do perfil');
+    expect(index.explanationForCitizen).toContain('não mede qualidade');
   });
 });

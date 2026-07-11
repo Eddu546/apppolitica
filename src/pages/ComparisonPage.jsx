@@ -17,6 +17,7 @@ import { buildDeputadoMetrics } from '@/lib/legislative-logic';
 import { buildSensitiveCeapSummary } from '@/services/benefits';
 import { polishText } from '@/lib/display-text';
 import { filterAndSortByName } from '@/lib/search';
+import { DEFAULT_LEGISLATIVE_YEAR, LEGISLATIVE_YEARS } from '@/lib/legislative-years';
 
 const confidenceLabels = {
   high: 'Confiança alta',
@@ -260,7 +261,7 @@ const PoliticianSummary = ({ deputado, anoSelecionado, toast }) => {
         </div>
         <SensitiveCeapComparisonBlock summary={sensitiveCeapSummary} />
         <Button asChild variant="outline" size="sm" className="w-full mt-auto">
-          <Link to={`/politico/${deputado.id}`}>Ver perfil completo <ArrowRight className="ml-2 w-4 h-4" /></Link>
+          <Link to={`/politico/${deputado.id}?ano=${anoSelecionado}`}>Ver perfil completo <ArrowRight className="ml-2 w-4 h-4" /></Link>
         </Button>
       </CardContent>
     </Card>
@@ -273,7 +274,7 @@ const ComparisonPage = () => {
   const [selectedDeputado1, setSelectedDeputado1] = useState(null);
   const [selectedDeputado2, setSelectedDeputado2] = useState(null);
   const [loadingList, setLoadingList] = useState(true);
-  const [anoSelecionado, setAnoSelecionado] = useState('2024');
+  const [anoSelecionado, setAnoSelecionado] = useState(DEFAULT_LEGISLATIVE_YEAR);
 
   useEffect(() => {
     const fetchDeputados = async () => {
@@ -292,7 +293,7 @@ const ComparisonPage = () => {
     fetchDeputados();
   }, [toast]);
 
-  const anosDisponiveis = ['2023', '2024', '2025'];
+  const anosDisponiveis = LEGISLATIVE_YEARS;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">

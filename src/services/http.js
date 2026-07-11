@@ -1,4 +1,5 @@
 const memoryCache = new Map();
+const inFlightRequests = new Map();
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -14,7 +15,14 @@ export const buildQueryString = (params = {}) => {
   return query.toString();
 };
 
-export const cachedJsonFetch = async (url, options = {}) => {
+const buildCachedResult = (cached, extra = {}) => ({
+  data: cached.data,
+  fetchedAt: cached.fetchedAt,
+  fromCache: true,
+  ...extra,
+});
+
+const fetchWithCache = async (url, options, parseResponse, acceptHeader) => {
   const {
     cacheTtlMs = 1000 * 60 * 10,
     retries = 2,
@@ -25,68 +33,86 @@ export const cachedJsonFetch = async (url, options = {}) => {
 
   const cached = memoryCache.get(cacheKey);
   if (cached && Date.now() - cached.storedAt < cacheTtlMs) {
-    return { data: cached.data, fetchedAt: cached.fetchedAt, fromCache: true };
+    return buildCachedResult(cached, { cacheStatus: 'fresh' });
   }
 
-  let lastError;
+  if (inFlightRequests.has(cacheKey)) {
+    return inFlightRequests.get(cacheKey);
+  }
 
-  for (let attempt = 0; attempt <= retries; attempt += 1) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const request = (async () => {
+    let lastError;
 
-    try {
-      const response = await fetch(url, {
-        ...fetchOptions,
-        signal: controller.signal,
-        headers: {
-          Accept: 'application/json',
-          ...(fetchOptions.headers || {}),
-        },
-      });
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-      clearTimeout(timeout);
+      try {
+        const response = await fetch(url, {
+          ...fetchOptions,
+          signal: controller.signal,
+          headers: {
+            Accept: acceptHeader,
+            ...(fetchOptions.headers || {}),
+          },
+        });
 
-      if (response.status === 429 || response.status >= 500) {
-        throw new Error(`Status ${response.status}`);
-      }
+        if (!response.ok) {
+          throw new Error(`Status ${response.status}`);
+        }
 
-      if (!response.ok) {
-        return {
-          data: null,
-          fetchedAt: new Date().toISOString(),
-          fromCache: false,
-          error: `Status ${response.status}`,
-        };
-      }
+        const data = await parseResponse(response);
+        const fetchedAt = new Date().toISOString();
 
-      const data = await response.json();
-      const fetchedAt = new Date().toISOString();
+        memoryCache.set(cacheKey, {
+          data,
+          fetchedAt,
+          storedAt: Date.now(),
+        });
 
-      memoryCache.set(cacheKey, {
-        data,
-        fetchedAt,
-        storedAt: Date.now(),
-      });
-
-      return { data, fetchedAt, fromCache: false };
-    } catch (error) {
-      clearTimeout(timeout);
-      lastError = error;
-
-      if (attempt < retries) {
-        await sleep(400 * (attempt + 1));
+        return { data, fetchedAt, fromCache: false, cacheStatus: 'network' };
+      } catch (error) {
+        lastError = error;
+        if (attempt < retries) {
+          await sleep(400 * 2 ** attempt);
+        }
+      } finally {
+        clearTimeout(timeout);
       }
     }
-  }
 
-  return {
-    data: null,
-    fetchedAt: new Date().toISOString(),
-    fromCache: false,
-    error: lastError?.message || 'Falha ao buscar dados',
-  };
+    if (cached) {
+      return buildCachedResult(cached, {
+        cacheStatus: 'stale',
+        stale: true,
+        warning: lastError?.message || 'A fonte oficial não respondeu; exibindo a última consulta disponível.',
+      });
+    }
+
+    return {
+      data: null,
+      fetchedAt: new Date().toISOString(),
+      fromCache: false,
+      cacheStatus: 'error',
+      error: lastError?.message || 'Falha ao buscar dados',
+    };
+  })();
+
+  inFlightRequests.set(cacheKey, request);
+  try {
+    return await request;
+  } finally {
+    inFlightRequests.delete(cacheKey);
+  }
 };
+
+export const cachedJsonFetch = (url, options = {}) =>
+  fetchWithCache(url, options, (response) => response.json(), 'application/json');
+
+export const cachedTextFetch = (url, options = {}) =>
+  fetchWithCache(url, options, (response) => response.text(), 'text/html,text/plain,*/*');
 
 export const clearMemoryCache = () => {
   memoryCache.clear();
+  inFlightRequests.clear();
 };

@@ -210,7 +210,7 @@ const OfficialPropositionPanel = ({ proposicao, autores, officialLabel }) => (
             </a>
             <a href={proposicao.__meta?.detailSourceUrl || getTechnicalUrl(`/proposicoes/${proposicao.id}`)} target="_blank" rel="noopener noreferrer">
               <Button variant="outline" size="sm">
-                Dados técnicos <ExternalLink className="ml-2 h-4 w-4" />
+                Endpoint técnico da API <ExternalLink className="ml-2 h-4 w-4" />
               </Button>
             </a>
           </div>
@@ -425,7 +425,7 @@ const VotingCard = ({ voting, agenda, officialLabel }) => {
             {sourceUrl && (
               <a href={sourceUrl} target="_blank" rel="noopener noreferrer">
                 <Button variant="outline" size="sm">
-                  Fonte <ExternalLink className="ml-2 h-4 w-4" />
+                  Dados técnicos da votação <ExternalLink className="ml-2 h-4 w-4" />
                 </Button>
               </a>
             )}
@@ -563,7 +563,7 @@ const AgendaDetailPage = ({ slugOverride = '' }) => {
         </div>
       </div>
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <AgendaSummaryPanel agenda={agenda} officialLabel={officialLabel} />
 
         {loading ? (
@@ -608,9 +608,10 @@ const AgendaDetailPage = ({ slugOverride = '' }) => {
             <SourceMethodPanel proposicao={proposicao} votacoes={votacoes} officialLabel={officialLabel} type={type} number={number} year={year} />
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 };
 
 export default AgendaDetailPage;
+

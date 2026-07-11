@@ -1,4 +1,5 @@
 import { cachedJsonFetch } from '@/services/http';
+import { getDeputadoPortalVotacoes } from '@/services/camaraPortal';
 import { applyPartyCorrectionToDeputadoInfo, applyPartyCorrectionToDeputy } from '@/lib/party-corrections';
 import {
   attachDeputyVoteToVoting,
@@ -74,6 +75,7 @@ export const fetchAllCamaraPages = async (urlBase, maxPages = 5) => {
   let allData = [];
   let fetchedAt = null;
   let sourceUrl = '';
+  let fetchError = null;
   let page = 1;
   let hasMore = true;
 
@@ -82,6 +84,12 @@ export const fetchAllCamaraPages = async (urlBase, maxPages = 5) => {
     const res = await fetchCamara(`${urlBase}${separator}pagina=${page}&itens=100`);
     fetchedAt = fetchedAt || res.fetchedAt;
     sourceUrl = sourceUrl || res.sourceUrl;
+
+    if (res.error) {
+      fetchError = res.error;
+      hasMore = false;
+      break;
+    }
 
     if (res.data?.dados?.length > 0) {
       allData = [...allData, ...res.data.dados];
@@ -95,6 +103,7 @@ export const fetchAllCamaraPages = async (urlBase, maxPages = 5) => {
     fetchedAt: fetchedAt || new Date().toISOString(),
     sourceName: 'Camara dos Deputados - Dados Abertos',
     sourceUrl,
+    ...(fetchError ? { error: fetchError } : {}),
   };
 
   return allData;
@@ -176,6 +185,12 @@ const attachOfficialPropositionRelations = (votacoes = [], objetosIndex = new Ma
 export const getDeputadoInfo = async (id) => {
   if (!id) return null;
   const raw = await fetchCamara(`/deputados/${encodeURIComponent(id)}`);
+  if (raw.error) {
+    const requestError = new Error(raw.error);
+    const statusMatch = String(raw.error).match(/Status\s+(\d{3})/i);
+    requestError.status = statusMatch ? Number(statusMatch[1]) : null;
+    throw requestError;
+  }
   const data = applyPartyCorrectionToDeputadoInfo(raw.data?.dados || null);
   if (data) {
     data.__meta = {
@@ -189,11 +204,8 @@ export const getDeputadoInfo = async (id) => {
 
 export const getDeputadoProposicoes = async (id, ano) => {
   if (!id) return [];
-  const endpoint = `/proposicoes?idDeputadoAutor=${encodeURIComponent(id)}&ano=${encodeURIComponent(ano)}&itens=100&ordem=DESC&ordenarPor=id`;
-  const raw = await fetchCamara(endpoint);
-  const data = raw.data?.dados || [];
-  data.__meta = { fetchedAt: raw.fetchedAt, sourceName: raw.sourceName, sourceUrl: raw.sourceUrl };
-  return data;
+  const endpoint = `/proposicoes?idDeputadoAutor=${encodeURIComponent(id)}&ano=${encodeURIComponent(ano)}&ordem=DESC&ordenarPor=id`;
+  return fetchAllCamaraPages(endpoint, 10);
 };
 
 export const getProposicaoByOfficialNumber = async ({ siglaTipo, numero, ano }) => {
@@ -306,10 +318,7 @@ export const getDeputadoEventos = async (id, ano) => {
 export const getDeputadoDiscursos = async (id, ano) => {
   if (!id) return [];
   const endpoint = `/deputados/${encodeURIComponent(id)}/discursos?dataInicio=${ano}-01-01&dataFim=${ano}-12-31&ordenarPor=dataHoraInicio`;
-  const raw = await fetchCamara(endpoint);
-  const data = raw.data?.dados || [];
-  data.__meta = { fetchedAt: raw.fetchedAt, sourceName: raw.sourceName, sourceUrl: raw.sourceUrl };
-  return data;
+  return fetchAllCamaraPages(endpoint, 10);
 };
 
 const findDeputyVoteInVoting = async (votacao, deputadoId) => {
@@ -357,6 +366,21 @@ const findDeputyVoteInVoting = async (votacao, deputadoId) => {
 export const getDeputadoVotacoes = async (id, ano) => {
   if (!id) return [];
 
+  const portalRecords = await getDeputadoPortalVotacoes(id, ano).catch(() => []);
+  if (portalRecords.length) {
+    const relevantesPortal = selectRelevantVotacoes(portalRecords, { limit: 12, includeFallback: true });
+    relevantesPortal.__meta = {
+      ...(portalRecords.__meta || {}),
+      totalPlenaryCandidates: portalRecords.length,
+      totalGeneralCandidates: portalRecords.length,
+      totalCandidatesChecked: portalRecords.length,
+      selectionMethod:
+        'Recorte temático criado a partir da lista individual de votações nominais exibida no Portal da Câmara para o deputado e o ano selecionados.',
+      portalDirectSourceUsed: true,
+    };
+    return relevantesPortal;
+  }
+
   const endpointPlenario = `/votacoes?idOrgao=180&dataInicio=${ano}-01-01&dataFim=${ano}-12-31`;
   const endpointGeral = `/votacoes?dataInicio=${ano}-01-01&dataFim=${ano}-12-31`;
   const votacoesPlenarioDiretas = await fetchAllCamaraPages(endpointPlenario, 12);
@@ -369,28 +393,22 @@ export const getDeputadoVotacoes = async (id, ano) => {
     ...votacoesBaseAno.filter(isPlenaryVoting),
   ];
   const idsPrioritarios = new Set();
-  const relevantesPlenario = selectRelevantVotacoes(votacoesPlenario, { limit: 90, includeFallback: true });
-  const relevantesTematicas = selectRelevantVotacoes(votacoesBaseAno, { limit: 40, includeFallback: false });
+  const relevantesPlenario = selectRelevantVotacoes(votacoesPlenario, { limit: 18, includeFallback: true });
+  const relevantesTematicas = selectRelevantVotacoes(votacoesBaseAno, { limit: 8, includeFallback: false });
   const relevantes = [...relevantesPlenario, ...relevantesTematicas].filter((votacao) => {
     const key = String(votacao.id || '');
     if (!key || idsPrioritarios.has(key)) return false;
     idsPrioritarios.add(key);
     return true;
-  });
-  const [objetosVotacao, proposicoesAfetadas] = await Promise.all([
-    getVotacoesProposicoesArquivoAnual(ano, 'objetos').catch(() => []),
-    getVotacoesProposicoesArquivoAnual(ano, 'proposicoes').catch(() => []),
-  ]);
-  const objetosIndex = buildVotingPropositionIndex(objetosVotacao);
-  const afetadasIndex = buildVotingPropositionIndex(proposicoesAfetadas);
-  const relevantesComProposicoes = attachOfficialPropositionRelations(relevantes, objetosIndex, afetadasIndex);
+  }).slice(0, 24);
   const votacoesComVoto = [];
 
-  for (const votacao of relevantesComProposicoes) {
-    const votacaoComVoto = await findDeputyVoteInVoting(votacao, id);
-    if (votacaoComVoto) {
-      votacoesComVoto.push(votacaoComVoto);
-    }
+  for (let index = 0; index < relevantes.length; index += 4) {
+    const batch = relevantes.slice(index, index + 4);
+    const batchResults = await Promise.all(
+      batch.map((votacao) => findDeputyVoteInVoting(votacao, id))
+    );
+    votacoesComVoto.push(...batchResults.filter(Boolean));
 
     if (votacoesComVoto.length >= 12) break;
   }
@@ -406,7 +424,7 @@ export const getDeputadoVotacoes = async (id, ano) => {
       return acc;
     }, new Map());
 
-    for (const votacao of relevantesComProposicoes) {
+    for (const votacao of relevantes) {
       const records = recordsByVotingId.get(String(votacao.id || '')) || [];
       const votacaoComVoto = attachDeputyVoteToVoting(votacao, records, id);
       if (votacaoComVoto) {
@@ -422,7 +440,21 @@ export const getDeputadoVotacoes = async (id, ano) => {
     }
   }
 
-  votacoesComVoto.__meta = {
+  const [objetosVotacao, proposicoesAfetadas] = votacoesComVoto.length
+    ? await Promise.all([
+      getVotacoesProposicoesArquivoAnual(ano, 'objetos').catch(() => []),
+      getVotacoesProposicoesArquivoAnual(ano, 'proposicoes').catch(() => []),
+    ])
+    : [[], []];
+  const objetosIndex = buildVotingPropositionIndex(objetosVotacao);
+  const afetadasIndex = buildVotingPropositionIndex(proposicoesAfetadas);
+  const votacoesEnriquecidas = attachOfficialPropositionRelations(
+    votacoesComVoto.slice(0, 12),
+    objetosIndex,
+    afetadasIndex
+  );
+
+  votacoesEnriquecidas.__meta = {
     fetchedAt:
       votacoesPlenarioDiretas.__meta?.fetchedAt ||
       votacoesAno.__meta?.fetchedAt ||
@@ -438,7 +470,7 @@ export const getDeputadoVotacoes = async (id, ano) => {
     plenarySourceUrl: 'https://dadosabertos.camara.leg.br/api/v2/votacoes?idOrgao=180',
     totalPlenaryCandidates: votacoesPlenario.length,
     totalGeneralCandidates: votacoesBaseAno.length,
-    totalCandidatesChecked: relevantesComProposicoes.length,
+    totalCandidatesChecked: relevantes.length,
     votingObjectRelations: objetosVotacao.length,
     affectedPropositionRelations: proposicoesAfetadas.length,
     annualVotingFileUsed: shouldUseAnnualVotingFile,
@@ -447,7 +479,7 @@ export const getDeputadoVotacoes = async (id, ano) => {
     annualVoteFileSourceUrl: annualVoteRecords.__meta?.sourceUrl,
   };
 
-  return votacoesComVoto;
+  return votacoesEnriquecidas;
 };
 
 export const getAllDeputadosList = async () => {

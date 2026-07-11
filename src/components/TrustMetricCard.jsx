@@ -1,8 +1,10 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, ExternalLink, HelpCircle, ShieldAlert } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { polishText } from '@/lib/display-text';
 import { formatCurrency, formatNumber } from '@/lib/legislative-logic';
+import { getReadableSourceUrl, isInternalPath } from '@/lib/official-links';
 
 const statusStyles = {
   available: {
@@ -42,6 +44,7 @@ const formatValue = (metric) => {
   }
 
   if (metric.unit === 'BRL') return formatCurrency(metric.value);
+  if (metric.unit === '%') return formatNumber(metric.value) + '%';
   if (typeof metric.value === 'number') return `${formatNumber(metric.value)}${metric.unit === 'pontos' ? ' pts' : ''}`;
   return String(metric.value);
 };
@@ -54,11 +57,6 @@ const formatDate = (date) => {
   });
 };
 
-const getSafeSourceUrl = (sourceUrl) => {
-  if (!sourceUrl || String(sourceUrl).includes('{')) return '';
-  return sourceUrl;
-};
-
 const TrustMetricCard = ({ metric }) => {
   const status = metric.status || (metric.confidence === 'unavailable' ? 'unavailable' : 'available');
   const style = statusStyles[status] || statusStyles.unavailable;
@@ -67,7 +65,10 @@ const TrustMetricCard = ({ metric }) => {
   const explanation = polishText(metric.explanationForCitizen || metric.description || 'Método de cálculo não informado.');
   const method = polishText(metric.calculationMethod || metric.description || 'Método de cálculo não informado.');
   const confidence = metric.confidenceLevel || metric.confidence || 'low';
-  const safeSourceUrl = getSafeSourceUrl(metric.sourcePageUrl || metric.sourceUrl);
+  const readableSourceUrl = getReadableSourceUrl({
+    sourcePageUrl: metric.sourcePageUrl,
+    sourceUrl: metric.sourceUrl,
+  });
 
   return (
     <Card className="shadow-sm border-gray-100 h-full">
@@ -82,6 +83,17 @@ const TrustMetricCard = ({ metric }) => {
 
         <p className="text-3xl font-black text-gray-900 leading-tight">{formatValue(metric)}</p>
         <p className="text-sm text-gray-600 leading-relaxed">{explanation}</p>
+
+        {metric.details?.length > 0 && (
+          <div className="grid grid-cols-2 gap-2 rounded-lg border border-gray-100 bg-gray-50 p-3">
+            {metric.details.map((item) => (
+              <div key={item.label} className="rounded-md bg-white px-3 py-2 ring-1 ring-gray-100">
+                <p className="text-[10px] font-black uppercase text-gray-500">{polishText(item.label)}</p>
+                <p className="mt-1 text-sm font-black text-gray-950">{polishText(item.value)}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         {metric.warnings?.length > 0 && (
           <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-xs text-yellow-800 space-y-1">
@@ -99,15 +111,21 @@ const TrustMetricCard = ({ metric }) => {
             <summary className="cursor-pointer font-semibold text-gray-600">Entenda este número</summary>
             <p className="mt-1 leading-relaxed">{method}</p>
           </details>
-          {safeSourceUrl && (
-            <a
-              href={safeSourceUrl}
-              target={safeSourceUrl.startsWith('/') ? undefined : '_blank'}
-              rel={safeSourceUrl.startsWith('/') ? undefined : 'noopener noreferrer'}
-              className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:underline"
-            >
-              Ver fonte <ExternalLink className="w-3 h-3" />
-            </a>
+          {readableSourceUrl && (
+            isInternalPath(readableSourceUrl) ? (
+              <Link to={readableSourceUrl} className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:underline">
+                Ver fonte explicada <ExternalLink className="w-3 h-3" />
+              </Link>
+            ) : (
+              <a
+                href={readableSourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:underline"
+              >
+                Abrir fonte oficial <ExternalLink className="w-3 h-3" />
+              </a>
+            )
           )}
         </div>
       </CardContent>

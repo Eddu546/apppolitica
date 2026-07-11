@@ -11,6 +11,8 @@ import {
   upsertDeputyYearSummary,
 } from '@/services/annualSummaries';
 import { getAllDeputadosList, getDeputadoDespesas } from '@/services/camara';
+import { upsertDeputadoPortalResumoCache } from '@/services/camaraPortal';
+import { DEFAULT_LEGISLATIVE_YEAR, LEGISLATIVE_YEARS } from '@/lib/legislative-years';
 import {
   fetchCorrections,
   getAdminSession,
@@ -84,14 +86,14 @@ const AdminCorrectionsPage = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [filter, setFilter] = useState('todos');
-  const [syncYear, setSyncYear] = useState('2024');
+  const [syncYear, setSyncYear] = useState(DEFAULT_LEGISLATIVE_YEAR);
   const [syncMode, setSyncMode] = useState('missing');
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(DEFAULT_SYNC_PROGRESS);
   const [syncMessage, setSyncMessage] = useState('');
   const [syncError, setSyncError] = useState('');
   const [savedSummaryCount, setSavedSummaryCount] = useState(null);
-  const [lastFailures, setLastFailures] = useState(() => readStoredSyncFailures('2024'));
+  const [lastFailures, setLastFailures] = useState(() => readStoredSyncFailures(DEFAULT_LEGISLATIVE_YEAR));
   const adminEmail = getLoggedAdminEmail();
 
   const loadCorrections = async () => {
@@ -247,7 +249,11 @@ const AdminCorrectionsPage = () => {
 
       let success = 0;
       let failed = 0;
+      let portalSuccess = 0;
+      let portalFailed = 0;
       let firstError = '';
+      let firstPortalError = '';
+      let portalCacheDisabledReason = '';
       const failures = [];
 
       for (let index = 0; index < targetDeputies.length; index += 1) {
@@ -256,6 +262,30 @@ const AdminCorrectionsPage = () => {
           const despesas = await getDeputadoDespesas(deputado.id, syncYear);
           const summary = buildDeputyAnnualExpenseSummary({ deputado, despesas, ano: syncYear });
           await upsertDeputyYearSummary(summary);
+          if (!portalCacheDisabledReason) {
+            try {
+              const portalResult = await upsertDeputadoPortalResumoCache({ deputado, ano: syncYear });
+              if (!portalResult?.ok) {
+                throw new Error(portalResult?.reason || 'Cache do portal nao confirmado.');
+              }
+              portalSuccess += 1;
+            } catch (portalError) {
+              console.warn('Resumo do portal nao foi salvo:', deputado.nome, portalError);
+              portalFailed += 1;
+              if (!firstPortalError) firstPortalError = `${deputado.nome}: ${portalError.message}`;
+
+              const normalizedPortalError = String(portalError.message || '').toLowerCase();
+              const isSchemaOrPermissionError =
+                (normalizedPortalError.includes('relation') && normalizedPortalError.includes('does not exist')) ||
+                normalizedPortalError.includes('row-level security') ||
+                normalizedPortalError.includes('permission denied') ||
+                normalizedPortalError.includes('missing-config');
+
+              if (isSchemaOrPermissionError) {
+                portalCacheDisabledReason = portalError.message || 'Cache do portal indisponivel.';
+              }
+            }
+          }
           success += 1;
         } catch (error) {
           console.error('Erro ao sincronizar deputado:', deputado.nome, error);
@@ -289,12 +319,21 @@ const AdminCorrectionsPage = () => {
         return null;
       });
       setSyncMessage(
-        `Sincronização concluída: ${success} resumos salvos, ${failed} falhas${
+        `Sincronização concluída: ${success} resumos de gastos salvos, ${portalSuccess} resumos do portal salvos, ${failed} falhas${
           skipped ? `, ${skipped} já estavam salvos e foram pulados` : ''
         }.`
       );
+      if (portalCacheDisabledReason) {
+        setSyncMessage((message) =>
+          message.replace(/\.$/, ', cache do portal pulado ate atualizar o Supabase.')
+        );
+      }
       if (firstError) {
         setSyncError(`Primeiro erro encontrado: ${firstError}`);
+      } else if (firstPortalError) {
+        setSyncError(
+          `Os gastos foram sincronizados, mas o cache do portal ${portalCacheDisabledReason ? 'foi pausado automaticamente' : `teve ${portalFailed} falha(s)`}. Primeiro erro: ${firstPortalError}. Rode o schema.sql atualizado no Supabase quando puder.`
+        );
       }
     } catch (error) {
       console.error('Erro na sincronização anual:', error);
@@ -397,7 +436,7 @@ const AdminCorrectionsPage = () => {
                 <div>
                   <h2 className="text-lg font-bold text-gray-900">Cache gratuito de rankings</h2>
                   <p className="text-sm text-gray-600 max-w-3xl">
-                    Sincroniza despesas anuais da Câmara para o Supabase. Depois disso, os perfis conseguem mostrar média nacional, média estadual e ranking com base real.
+                    Sincroniza despesas anuais e o resumo oficial do portal da Câmara para o Supabase. Depois disso, rankings e perfis carregam mais rápido e fazem menos chamadas diretas à Câmara.
                   </p>
                   <p className="mt-2 text-xs text-gray-500">
                     E-mail logado no painel: <strong>{adminEmail || 'não identificado'}</strong>
@@ -411,7 +450,7 @@ const AdminCorrectionsPage = () => {
                   className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
                   disabled={syncing}
                 >
-                  {['2023', '2024', '2025', '2026'].map((year) => (
+              {LEGISLATIVE_YEARS.map((year) => (
                     <option key={year} value={year}>{year}</option>
                   ))}
                 </select>

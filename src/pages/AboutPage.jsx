@@ -129,7 +129,7 @@ const AboutPage = () => (
         </div>
       </section>
 
-      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <section className="grid gap-4 md:grid-cols-3">
           {dataLayers.map((item) => (
             <div key={item.label} className="rounded-lg border border-gray-100 bg-white p-5 shadow-sm">
@@ -243,7 +243,7 @@ const AboutPage = () => (
             </Button>
           </div>
         </section>
-      </main>
+      </div>
     </div>
   </>
 );

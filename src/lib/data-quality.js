@@ -46,6 +46,7 @@ export const createKpi = ({
   explanationForCitizen,
   warnings = [],
   breakdown,
+  details = [],
 }) => ({
   id,
   label,
@@ -63,6 +64,7 @@ export const createKpi = ({
   explanationForCitizen,
   warnings,
   breakdown,
+  details,
 });
 
 export const unavailableKpi = ({

@@ -1,8 +1,10 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { AlertTriangle, ExternalLink, SearchCheck } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { polishText } from '@/lib/display-text';
 import { formatCurrency } from '@/lib/legislative-logic';
+import { getReadableSourceUrl, isInternalPath } from '@/lib/official-links';
 
 const formatPercent = (value) =>
   `${((Number(value) || 0) * 100).toLocaleString('pt-BR', {
@@ -18,12 +20,11 @@ const formatDate = (date) => {
   });
 };
 
-const isSafeSourceUrl = (sourceUrl) => sourceUrl && !String(sourceUrl).includes('{');
-
 const SensitiveCeapPanel = ({ summary }) => {
   if (!summary) return null;
 
   const hasCategories = summary.categories?.length > 0;
+  const readableSourceUrl = getReadableSourceUrl({ sourceUrl: summary.sourceUrl });
 
   return (
     <Card className="border-slate-200 bg-white shadow-sm">
@@ -123,15 +124,21 @@ const SensitiveCeapPanel = ({ summary }) => {
             <summary className="cursor-pointer font-bold text-slate-600">Como foi calculado</summary>
             <p className="mt-1 leading-relaxed">{polishText(summary.calculationMethod)}</p>
           </details>
-          {isSafeSourceUrl(summary.sourceUrl) && (
-            <a
-              href={summary.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:underline"
-            >
-              Ver fonte <ExternalLink className="h-3 w-3" />
-            </a>
+          {readableSourceUrl && (
+            isInternalPath(readableSourceUrl) ? (
+              <Link to={readableSourceUrl} className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:underline">
+                Ver fonte explicada <ExternalLink className="h-3 w-3" />
+              </Link>
+            ) : (
+              <a
+                href={readableSourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:underline"
+              >
+                Abrir fonte oficial <ExternalLink className="h-3 w-3" />
+              </a>
+            )
           )}
         </div>
       </CardContent>

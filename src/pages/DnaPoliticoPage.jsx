@@ -86,7 +86,7 @@ const DnaPoliticoPage = () => {
           </div>
         </section>
 
-        <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
           {step === 'intro' && (
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="grid gap-6 lg:grid-cols-[1fr_360px]">
               <div className="rounded-lg border border-gray-200 bg-white p-7 shadow-sm">
@@ -223,7 +223,7 @@ const DnaPoliticoPage = () => {
               </div>
             </motion.div>
           )}
-        </main>
+        </div>
       </div>
     </>
   );

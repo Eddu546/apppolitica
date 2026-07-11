@@ -55,7 +55,8 @@ const getOfficialEventsUrl = (deputadoId, ano) =>
 const getOfficialSpeechesUrl = (deputadoId, ano) =>
   `https://dadosabertos.camara.leg.br/api/v2/deputados/${encodeURIComponent(deputadoId)}/discursos?dataInicio=${encodeURIComponent(ano)}-01-01&dataFim=${encodeURIComponent(ano)}-12-31`;
 
-const getOfficialVotesUrl = () => 'https://dadosabertos.camara.leg.br/api/v2/votacoes';
+const getOfficialVotesUrl = (deputadoId, ano) =>
+  `https://www.camara.leg.br/deputados/${encodeURIComponent(deputadoId)}/votacoes-nominais-plenario/${encodeURIComponent(ano)}`;
 
 const DATASET_CONFIGS = {
   despesas: {
@@ -176,13 +177,24 @@ const SourceDetailPage = () => {
 
       setLoading(true);
       setError('');
-      try {
-        const [info, rows] = await Promise.all([
+      const [infoResult, rowsResult] = await Promise.allSettled([
           getDeputadoInfo(deputyId),
           datasetConfig.fetcher(deputyId, year),
-        ]);
+      ]);
+
+      try {
+        const info = infoResult.status === 'fulfilled' ? infoResult.value : null;
+        const rows = rowsResult.status === 'fulfilled' ? rowsResult.value : [];
         setDeputado(info);
         setRecords(rows || []);
+
+        if (rowsResult.status === 'rejected') {
+          setError('Não foi possível consultar esta fonte oficial agora.');
+        } else if (rows?.__meta?.error) {
+          setError('A fonte oficial não respondeu completamente. Os registros abaixo podem estar indisponíveis ou parciais.');
+        } else if (infoResult.status === 'rejected') {
+          setError('Os registros foram consultados, mas os dados de identificação do deputado estão temporariamente indisponíveis.');
+        }
       } catch (err) {
         console.error('Erro ao carregar fonte interna:', err);
         setError('Não foi possível consultar a fonte oficial agora.');
@@ -260,7 +272,7 @@ const SourceDetailPage = () => {
 
         <div className="border-b border-yellow-400/20 bg-black text-white">
           <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-            <Link to={`/politico/${deputyId}`} className="mb-6 inline-flex items-center text-sm font-bold text-yellow-200 hover:text-yellow-100">
+            <Link to={`/politico/${deputyId}?ano=${year}`} className="mb-6 inline-flex items-center text-sm font-bold text-yellow-200 hover:text-yellow-100">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Voltar ao perfil
             </Link>
@@ -342,7 +354,7 @@ const SourceDetailPage = () => {
                 </div>
 
                 <div className="mt-5 rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-700">
-                  <p className="text-xs font-black uppercase text-gray-500">Endpoint técnico oficial</p>
+                  <p className="text-xs font-black uppercase text-gray-500">Fonte oficial consultada</p>
                   <a
                     href={summary.sourceUrl}
                     target="_blank"
@@ -381,7 +393,7 @@ const SourceDetailPage = () => {
 
       <div className="border-b border-yellow-400/20 bg-black text-white">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <Link to={`/politico/${deputyId}`} className="mb-6 inline-flex items-center text-sm font-bold text-yellow-200 hover:text-yellow-100">
+          <Link to={`/politico/${deputyId}?ano=${year}`} className="mb-6 inline-flex items-center text-sm font-bold text-yellow-200 hover:text-yellow-100">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Voltar ao perfil
           </Link>

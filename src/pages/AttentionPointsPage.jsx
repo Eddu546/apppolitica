@@ -6,7 +6,9 @@ import AnnualCacheEmptyState from '@/components/AnnualCacheEmptyState';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { polishText } from '@/lib/display-text';
+import { DEFAULT_LEGISLATIVE_YEAR, LEGISLATIVE_YEARS } from '@/lib/legislative-years';
 import { formatCurrency } from '@/lib/legislative-logic';
+import { getReadableSourceUrl, isInternalPath } from '@/lib/official-links';
 import {
   buildSpendingAttentionPoints,
   fetchDeputyYearSummaries,
@@ -53,7 +55,10 @@ const deputyPhotoFallback = 'https://www.camara.leg.br/tema/assets/images/foto-d
 const getDeputyPhotoUrl = (id) =>
   id ? `https://www.camara.leg.br/internet/deputado/bandep/${encodeURIComponent(id)}.jpg` : deputyPhotoFallback;
 
-const AttentionPointCard = ({ point }) => (
+const AttentionPointCard = ({ point }) => {
+  const readableSourceUrl = getReadableSourceUrl({ sourceUrl: point.sourceUrl });
+
+  return (
   <Card>
     <CardContent className="p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -117,23 +122,33 @@ const AttentionPointCard = ({ point }) => (
           </details>
         </div>
 
-        {point.sourceUrl && (
-          <a
-            href={point.sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:underline"
-          >
-            Fonte <ExternalLink className="h-4 w-4" />
-          </a>
+        {readableSourceUrl && (
+          isInternalPath(readableSourceUrl) ? (
+            <Link
+              to={readableSourceUrl}
+              className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:underline"
+            >
+              Fonte explicada <ExternalLink className="h-4 w-4" />
+            </Link>
+          ) : (
+            <a
+              href={readableSourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:underline"
+            >
+              Fonte oficial <ExternalLink className="h-4 w-4" />
+            </a>
+          )
         )}
       </div>
     </CardContent>
   </Card>
-);
+  );
+};
 
 const AttentionPointsPage = () => {
-  const [year, setYear] = useState('2025');
+  const [year, setYear] = useState(DEFAULT_LEGISLATIVE_YEAR);
   const [summaries, setSummaries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
@@ -156,7 +171,8 @@ const AttentionPointsPage = () => {
         setSourceMode('live');
         setMessage(`${reason} Montando amostra gratuita em tempo real pela API oficial da Câmara...`);
         const liveResult = await fetchLiveDeputyYearSummaries(year, {
-          limit: 60,
+          limit: 27,
+          concurrency: 3,
           onProgress: ({ current, total }) => {
             setMessage(`Montando amostra oficial em tempo real: ${current} de ${total} deputados consultados.`);
           },
@@ -327,7 +343,7 @@ const AttentionPointsPage = () => {
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              {['2023', '2024', '2025', '2026'].map((option) => (
+              {LEGISLATIVE_YEARS.map((option) => (
                 <Button key={option} size="sm" variant={year === option ? 'default' : 'outline'} onClick={() => setYear(option)}>
                   {option}
                 </Button>

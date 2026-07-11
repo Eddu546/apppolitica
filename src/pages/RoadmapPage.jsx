@@ -157,7 +157,7 @@ const RoadmapPage = () => (
         </div>
       </section>
 
-      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <section className="mb-8 grid gap-4 md:grid-cols-3">
           {phases.map((phase) => (
             <div key={phase.title} className="rounded-lg border border-gray-100 bg-white p-5 shadow-sm">
@@ -212,7 +212,7 @@ const RoadmapPage = () => (
             Um recurso só vira número público quando tem fonte rastreável, método explicável e tratamento para dado parcial. Relatorias, faltas e presença percentual continuam bloqueadas quando a fonte atual não permite calcular com segurança.
           </p>
         </section>
-      </main>
+      </div>
     </div>
   </>
 );

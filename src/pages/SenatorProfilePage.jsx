@@ -17,6 +17,7 @@ import {
 import { buildSenadorMetrics } from '@/lib/legislative-logic';
 import { fetchValidatedMetrics } from '@/services/corrections';
 import { ensureArray } from '@/services/senado';
+import { DEFAULT_LEGISLATIVE_YEAR, LEGISLATIVE_YEARS } from '@/lib/legislative-years';
 
 const fallbackPhoto = 'https://www.senado.leg.br/senadores/img/fotos-oficiais/senador_sem_foto.jpg';
 
@@ -52,7 +53,7 @@ const SenateCitizenSummary = ({ info, mandato, sourceUrl, fetchedAt }) => (
       </div>
       {sourceUrl && (
         <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-yellow-900 hover:underline">
-          Ver JSON oficial do Senado <ExternalLink className="h-4 w-4" />
+          Abrir perfil oficial do Senado <ExternalLink className="h-4 w-4" />
         </a>
       )}
     </CardContent>
@@ -82,17 +83,14 @@ const SenatorProfilePage = () => {
   const { toast } = useToast();
   const [senador, setSenador] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [anoSelecionado, setAnoSelecionado] = useState('2024');
+  const [anoSelecionado, setAnoSelecionado] = useState(DEFAULT_LEGISLATIVE_YEAR);
   const [relatorias, setRelatorias] = useState([]);
   const [votacoes, setVotacoes] = useState([]);
   const [despesas, setDespesas] = useState([]);
   const [discursos, setDiscursos] = useState([]);
   const [metricasValidadas, setMetricasValidadas] = useState([]);
 
-  const anosDisponiveis = useMemo(
-    () => Array.from(new Set(['2023', '2024', '2025', String(new Date().getFullYear())])).sort(),
-    []
-  );
+  const anosDisponiveis = LEGISLATIVE_YEARS;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -150,8 +148,7 @@ const SenatorProfilePage = () => {
   const mandato = Array.isArray(mandatoRaw) ? mandatoRaw[0] : (mandatoRaw || {});
   const suplentes = ensureArray(mandato.Suplentes?.Suplente);
   const exercicios = ensureArray(mandato.Exercicios?.Exercicio);
-  const sourceUrl = senador.__meta?.sourceUrl;
-  const officialPageUrl = info.UrlPaginaParlamentar || sourceUrl;
+  const officialPageUrl = info.UrlPaginaParlamentar || '';
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -207,7 +204,7 @@ const SenatorProfilePage = () => {
       <div className="max-w-5xl mx-auto px-4 py-12">
         <div className="grid md:grid-cols-3 gap-8">
           <div className="md:col-span-2 space-y-6">
-            <SenateCitizenSummary info={info} mandato={mandato} sourceUrl={sourceUrl} fetchedAt={senador.__meta?.fetchedAt} />
+            <SenateCitizenSummary info={info} mandato={mandato} sourceUrl={officialPageUrl} fetchedAt={senador.__meta?.fetchedAt} />
             <ValidatedMetricsPanel items={metricasValidadas} />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">

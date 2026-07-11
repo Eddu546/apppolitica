@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { polishText } from '@/lib/display-text';
 import { formatCurrency, formatNumber } from '@/lib/legislative-logic';
+import { DEFAULT_LEGISLATIVE_YEAR, LEGISLATIVE_YEARS } from '@/lib/legislative-years';
 import {
   decorateSummariesWithSensitiveCategory,
   fetchDeputyYearSummaries,
@@ -293,7 +294,7 @@ const RankingRow = ({ item, position, categoryLabel, categoryMode, listAverage }
 };
 
 const RankingsPage = () => {
-  const [year, setYear] = useState('2025');
+  const [year, setYear] = useState(DEFAULT_LEGISLATIVE_YEAR);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
@@ -318,7 +319,8 @@ const RankingsPage = () => {
         setSourceMode('live');
         setMessage(`${reason} Montando amostra gratuita em tempo real pela API oficial da Câmara...`);
         const liveResult = await fetchLiveDeputyYearSummaries(year, {
-          limit: 60,
+          limit: 27,
+          concurrency: 3,
           onProgress: ({ current, total }) => {
             setMessage(`Montando amostra oficial em tempo real: ${current} de ${total} deputados consultados.`);
           },
@@ -535,7 +537,7 @@ const RankingsPage = () => {
               </select>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
-              {['2023', '2024', '2025', '2026'].map((option) => (
+              {LEGISLATIVE_YEARS.map((option) => (
                 <Button key={option} size="sm" variant={year === option ? 'default' : 'outline'} onClick={() => setYear(option)}>
                   {option}
                 </Button>

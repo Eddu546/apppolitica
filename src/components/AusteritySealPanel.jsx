@@ -1,8 +1,10 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { AlertTriangle, Award, CheckCircle2, ExternalLink, HelpCircle, ShieldCheck } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { polishText } from '@/lib/display-text';
 import { formatCurrency } from '@/lib/legislative-logic';
+import { getReadableSourceUrl, isInternalPath } from '@/lib/official-links';
 
 const sealStyles = {
   approved: {
@@ -66,8 +68,6 @@ const getCheckState = (check) => {
   };
 };
 
-const isSafeSourceUrl = (sourceUrl) => sourceUrl && !String(sourceUrl).includes('{');
-
 const AusteritySealPanel = ({ seal }) => {
   if (!seal) return null;
 
@@ -100,6 +100,7 @@ const AusteritySealPanel = ({ seal }) => {
             {seal.checks.map((check) => {
               const checkState = getCheckState(check);
               const CheckIcon = checkState.Icon;
+              const readableSourceUrl = getReadableSourceUrl({ sourceUrl: check.sourceUrl });
 
               return (
                 <div key={check.id} className="rounded-lg border border-white/70 bg-white p-4 shadow-sm">
@@ -136,15 +137,21 @@ const AusteritySealPanel = ({ seal }) => {
                       <summary className="cursor-pointer font-bold text-slate-600">Como foi verificado</summary>
                       <p className="mt-1 leading-relaxed">{polishText(check.calculationMethod || 'Método não informado.')}</p>
                     </details>
-                    {isSafeSourceUrl(check.sourceUrl) && (
-                      <a
-                        href={check.sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:underline"
-                      >
-                        Ver fonte <ExternalLink className="h-3 w-3" />
-                      </a>
+                    {readableSourceUrl && (
+                      isInternalPath(readableSourceUrl) ? (
+                        <Link to={readableSourceUrl} className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:underline">
+                          Ver fonte explicada <ExternalLink className="h-3 w-3" />
+                        </Link>
+                      ) : (
+                        <a
+                          href={readableSourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:underline"
+                        >
+                          Abrir fonte oficial <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )
                     )}
                   </div>
                 </div>

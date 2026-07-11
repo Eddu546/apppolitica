@@ -1,13 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import {
-  AlertTriangle,
   ArrowRight,
   CheckCircle2,
   FileText,
   Scale,
-  ShieldAlert,
-  Vote,
   WalletCards,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -55,7 +52,7 @@ const StatusBadge = ({ status }) => (
   </span>
 );
 
-const SummaryItem = ({ icon: Icon, title, value, description, status = 'available' }) => (
+const SummaryItem = ({ icon: Icon, title, value, description, status = 'available', details = [] }) => (
   <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
     <div className="flex items-start justify-between gap-3">
       <div className="flex min-w-0 gap-3">
@@ -70,49 +67,26 @@ const SummaryItem = ({ icon: Icon, title, value, description, status = 'availabl
       <StatusBadge status={status} />
     </div>
     <p className="mt-3 text-sm leading-relaxed text-gray-600">{description}</p>
+    {details.length > 0 && (
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {details.map((item) => (
+          <div key={item.label} className="rounded-lg bg-gray-50 px-3 py-2 ring-1 ring-gray-100">
+            <p className="text-[10px] font-black uppercase text-gray-500">{polishText(item.label)}</p>
+            <p className="mt-1 text-sm font-black text-gray-950">{polishText(String(item.value))}</p>
+          </div>
+        ))}
+      </div>
+    )}
   </div>
 );
 
-const getTopCategory = (metrics) => metrics?.totalGastoAno?.breakdown?.categorias?.[0] || null;
-
-const buildLimitations = ({ metrics, expenseComparison, attentionPoints }) => {
-  const limitations = [];
-
-  if (metrics?.presenca?.status === 'unavailable') {
-    limitations.push('O perfil não calcula faltas nem presença percentual sem denominador oficial seguro.');
-  }
-
-  if (metrics?.relatorias?.status === 'unavailable') {
-    limitations.push('Relatorias e pareceres ficam indisponíveis enquanto a fonte atual não confirmar parlamentar, comissão, data e resultado.');
-  }
-
-  if (metrics?.votacoesNominais?.status !== 'available') {
-    limitations.push('Votações aparecem como recorte relevante; ausência de registro não é tratada como falta.');
-  }
-
-  if (expenseComparison?.status === 'unavailable') {
-    limitations.push('Comparação nacional depende do cache anual completo no Supabase.');
-  }
-
-  if (attentionPoints?.some((point) => point.type === 'missing_expense_data')) {
-    limitations.push('Ausência de despesa no resumo precisa ser checada na fonte; não é conclusão automática.');
-  }
-
-  return limitations.slice(0, 5);
-};
-
-const CitizenSummaryPanel = ({ metrics, attentionPoints = [], expenseComparison, ano }) => {
+const CitizenSummaryPanel = ({ metrics, ano }) => {
   if (!metrics) return null;
 
-  const topCategory = getTopCategory(metrics);
-  const topSupplier = metrics.maiorFornecedor?.breakdown;
-  const voteBreakdown = metrics.votacoesNominais?.breakdown || {};
-  const limitations = buildLimitations({ metrics, expenseComparison, attentionPoints });
   const sourceName = metrics.totalGastoAno?.sourceName || metrics.proposicoes?.sourceName || 'Fonte não informada';
   const fetchedAt = metrics.totalGastoAno?.fetchedAt || metrics.proposicoes?.fetchedAt;
   const sourcePageUrl = metrics.totalGastoAno?.sourcePageUrl;
-  const attentionHigh = attentionPoints.filter((point) => point.level === 'high').length;
-  const attentionMedium = attentionPoints.filter((point) => point.level === 'medium').length;
+  const proposalsComeFromPortal = String(metrics.proposicoes?.sourceName || '').toLowerCase().includes('portal');
 
   return (
     <Card className="border-yellow-200 bg-yellow-50">
@@ -125,8 +99,8 @@ const CitizenSummaryPanel = ({ metrics, attentionPoints = [], expenseComparison,
             </div>
             <h2 className="text-2xl font-black text-gray-950">Leitura rápida do ano {ano}</h2>
             <p className="mt-2 max-w-3xl text-sm leading-relaxed text-gray-700">
-              Este resumo traduz os indicadores auditáveis do perfil. Ele não substitui a leitura dos cards e não afirma
-              irregularidade, presença, falta ou relatoria quando a fonte oficial não sustenta essa conclusão.
+              Um resumo curto com os números principais do ano. Faltas, presenças e relatorias são exibidas apenas quando
+              aparecem em fonte oficial verificável.
             </p>
           </div>
 
@@ -143,7 +117,7 @@ const CitizenSummaryPanel = ({ metrics, attentionPoints = [], expenseComparison,
         <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <SummaryItem
             icon={WalletCards}
-            title="Gasto declarado"
+            title="Gastos declarados"
             value={formatMetricValue(metrics.totalGastoAno)}
             status={getMetricStatus(metrics.totalGastoAno)}
             description={
@@ -155,85 +129,66 @@ const CitizenSummaryPanel = ({ metrics, attentionPoints = [], expenseComparison,
 
           <SummaryItem
             icon={FileText}
-            title="Propostas encontradas"
+            title="Propostas protocoladas"
             value={formatMetricValue(metrics.proposicoes)}
             status={getMetricStatus(metrics.proposicoes)}
-            description="Quantidade de proposições retornadas pela API como autoria ou assinatura. Não significa aprovação."
-          />
-
-          <SummaryItem
-            icon={Vote}
-            title="Votações relevantes"
-            value={formatMetricValue(metrics.votacoesNominais)}
-            status={getMetricStatus(metrics.votacoesNominais)}
             description={
-              voteBreakdown.total
-                ? `Recorte com ${formatNumber(voteBreakdown.sim || 0)} voto(s) Sim e ${formatNumber(voteBreakdown.nao || 0)} voto(s) Não registrados.`
-                : 'Nenhuma votação relevante com voto nominal foi encontrada neste recorte.'
+              proposalsComeFromPortal
+                ? 'Número exibido no portal público da Câmara para propostas legislativas de autoria. Não significa aprovação.'
+                : 'Quantidade de proposições retornadas pela API como autoria ou assinatura. Não significa aprovação.'
             }
-          />
-
-          <SummaryItem
-            icon={WalletCards}
-            title="Principal categoria"
-            value={topCategory ? polishText(topCategory.name) : 'Dado indisponível'}
-            status={topCategory ? 'available' : 'unavailable'}
-            description={topCategory ? `${formatCurrency(topCategory.value)} somados nesta categoria.` : 'Não há categoria suficiente para cálculo.'}
           />
 
           <SummaryItem
             icon={FileText}
-            title="Maior fornecedor"
-            value={topSupplier?.name ? polishText(topSupplier.name) : 'Dado indisponível'}
-            status={topSupplier?.name ? 'available' : 'unavailable'}
-            description={topSupplier?.value ? `${formatCurrency(topSupplier.value)} somados neste fornecedor.` : 'Não há fornecedor suficiente para cálculo.'}
+            title="Relatorias encontradas"
+            value={formatMetricValue(metrics.relatorias)}
+            status={getMetricStatus(metrics.relatorias)}
+            description={
+              metrics.relatorias?.status === 'available'
+                ? 'Número de propostas relatadas exibido no portal público da Câmara. Este número não confirma aprovação.'
+                : 'A fonte atual não confirmou relatorias aprovadas com segurança para este ano.'
+            }
           />
 
           <SummaryItem
-            icon={ShieldAlert}
-            title="Pontos que merecem atenção"
-            value={attentionPoints.length ? formatNumber(attentionPoints.length) : 'Nenhum sinal automático'}
-            status={attentionPoints.length ? 'partial' : 'available'}
+            icon={CheckCircle2}
+            title="Presença em Plenário"
+            value={formatMetricValue(metrics.presencaPlenario)}
+            status={getMetricStatus(metrics.presencaPlenario)}
+            description="Dias em que a Câmara registra presença, falta justificada ou falta não justificada."
+            details={metrics.presencaPlenario?.details || []}
+          />
+
+          <SummaryItem
+            icon={CheckCircle2}
+            title="Presença em Comissões"
+            value={formatMetricValue(metrics.presencaComissoes)}
+            status={getMetricStatus(metrics.presencaComissoes)}
+            description="Reuniões em que a Câmara registra presença, falta justificada ou falta não justificada."
+            details={metrics.presencaComissoes?.details || []}
+          />
+
+          <SummaryItem
+            icon={FileText}
+            title="Discursos"
+            value={formatMetricValue(metrics.discursos)}
+            status={getMetricStatus(metrics.discursos)}
             description={
-              attentionPoints.length
-                ? `${attentionHigh} alto(s) e ${attentionMedium} médio(s). São sinais de triagem, não acusações.`
-                : 'Nenhum critério automático de triagem foi acionado neste perfil para o ano.'
+              metrics.discursos?.status === 'available'
+                ? 'Discursos em Plenário informados pelo portal público da Câmara ou pela API oficial.'
+                : 'A fonte oficial não retornou discursos para este ano.'
             }
           />
         </div>
 
-        <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1fr]">
-          <div className="rounded-xl border border-yellow-200 bg-white p-4">
-            <div className="flex items-start gap-3">
-              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-700" />
-              <div>
-                <h3 className="font-black text-gray-950">Fonte e data</h3>
-                <p className="mt-1 text-sm leading-relaxed text-gray-600">
-                  Fonte principal: <strong>{polishText(sourceName)}</strong>. Consulta registrada em{' '}
-                  <strong>{formatDate(fetchedAt)}</strong>.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-yellow-200 bg-white p-4">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-700" />
-              <div>
-                <h3 className="font-black text-gray-950">Limitações importantes</h3>
-                {limitations.length ? (
-                  <ul className="mt-2 space-y-1 text-sm leading-relaxed text-gray-600">
-                    {limitations.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-1 text-sm leading-relaxed text-gray-600">
-                    Não há limitação adicional além das observações dos cards detalhados abaixo.
-                  </p>
-                )}
-              </div>
-            </div>
+        <div className="mt-5 rounded-xl border border-yellow-200 bg-white p-4">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-700" />
+            <p className="text-sm leading-relaxed text-gray-600">
+              Fonte principal: <strong>{polishText(sourceName)}</strong>. Consulta registrada em{' '}
+              <strong>{formatDate(fetchedAt)}</strong>.
+            </p>
           </div>
         </div>
       </CardContent>

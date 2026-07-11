@@ -7,9 +7,21 @@ import {
   decorateSummariesWithSensitiveCategory,
   getSensitiveCategoryAmountFromSummary,
   getAnnualSummaryBaseStatus,
+  selectLiveSampleDeputies,
 } from '@/services/annualSummaries';
 
 describe('annual summaries', () => {
+  it('monta amostra ao vivo distribuida entre UFs sem usar aleatoriedade', () => {
+    const deputados = [
+      { id: 1, nome: 'Ana', siglaUf: 'SP' },
+      { id: 2, nome: 'Bruno', siglaUf: 'SP' },
+      { id: 3, nome: 'Carlos', siglaUf: 'PB' },
+      { id: 4, nome: 'Diana', siglaUf: 'RJ' },
+    ];
+
+    expect(selectLiveSampleDeputies(deputados, 3).map((item) => item.siglaUf)).toEqual(['PB', 'RJ', 'SP']);
+  });
+
   it('gera resumo anual de despesas com fonte e metodo', () => {
     const despesas = [
       { valorLiquido: '100.00', tipoDespesa: 'COMBUSTIVEL', nomeFornecedor: 'Posto A', dataDocumento: '2024-01-10' },

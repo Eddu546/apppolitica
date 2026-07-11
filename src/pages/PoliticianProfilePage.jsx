@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
-import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, AlertTriangle, BarChart3, DollarSign, ExternalLink, FileText, ListChecks, Loader2 } from 'lucide-react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, AlertTriangle, BarChart3, DollarSign, ExternalLink, FileText, ListChecks, Loader2, RefreshCw } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AusteritySealPanel from '@/components/AusteritySealPanel';
 import CitizenSummaryPanel from '@/components/CitizenSummaryPanel';
 import ExpenseComparisonPanel from '@/components/ExpenseComparisonPanel';
+import KpiVerificationPanel from '@/components/KpiVerificationPanel';
 import ProfileAttentionPanel from '@/components/ProfileAttentionPanel';
 import SensitiveCeapPanel from '@/components/SensitiveCeapPanel';
 import { useToast } from '@/components/ui/use-toast';
@@ -16,9 +17,10 @@ import TrustMetricCard from '@/components/TrustMetricCard';
 import ValidatedMetricsPanel from '@/components/ValidatedMetricsPanel';
 import VotingHighlightsPanel from '@/components/VotingHighlightsPanel';
 import { polishText } from '@/lib/display-text';
+import { LEGISLATIVE_YEARS, normalizeLegislativeYear } from '@/lib/legislative-years';
 import {
   buildDeputadoMetrics,
-  buildFiscalizationIndex,
+  buildProfileDataCoverage,
   filterComplexProjects,
   formatCurrency,
   groupExpensesByMonth,
@@ -38,6 +40,7 @@ import {
   getDeputadoProposicoes,
   getDeputadoVotacoes,
 } from '@/services/camara';
+import { getDeputadoPortalResumo } from '@/services/camaraPortal';
 import {
   analyzeVehicleRentalExpenses,
   buildAusteritySeal,
@@ -71,9 +74,12 @@ const ProjectList = ({ lista }) => (
 
 const PoliticianProfilePage = () => {
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
-  const [anoSelecionado, setAnoSelecionado] = useState('2024');
+  const [anoSelecionado, setAnoSelecionado] = useState(() => normalizeLegislativeYear(searchParams.get('ano')));
   const [politico, setPolitico] = useState(null);
+  const [profileLoadError, setProfileLoadError] = useState(null);
+  const [reloadAttempt, setReloadAttempt] = useState(0);
   const [loading, setLoading] = useState(true);
   const [partialError, setPartialError] = useState(false);
   const [proposicoes, setProposicoes] = useState([]);
@@ -81,24 +87,50 @@ const PoliticianProfilePage = () => {
   const [eventos, setEventos] = useState([]);
   const [discursos, setDiscursos] = useState([]);
   const [votacoes, setVotacoes] = useState([]);
+  const [votacoesLoading, setVotacoesLoading] = useState(true);
+  const [votacoesError, setVotacoesError] = useState(false);
+  const [portalResumo, setPortalResumo] = useState(null);
   const [metricasValidadas, setMetricasValidadas] = useState([]);
   const [expenseComparison, setExpenseComparison] = useState(null);
   const [attentionPoints, setAttentionPoints] = useState([]);
   const [austeritySeal, setAusteritySeal] = useState(null);
 
-  const anosDisponiveis = ['2023', '2024', '2025'];
+  const anosDisponiveis = LEGISLATIVE_YEARS;
+
+  const handleYearChange = (year) => {
+    setAnoSelecionado(year);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('ano', year);
+    setSearchParams(nextParams, { replace: true });
+  };
 
   useEffect(() => {
+    let active = true;
+
     const carregarDados = async () => {
       if (!id) return;
       setLoading(true);
+      setPolitico(null);
+      setProfileLoadError(null);
       setPartialError(false);
       setAusteritySeal(null);
+      setPortalResumo(null);
+      setProposicoes([]);
+      setDespesas([]);
+      setEventos([]);
+      setDiscursos([]);
+      setVotacoes([]);
+      setMetricasValidadas([]);
+      setExpenseComparison(null);
+      setAttentionPoints([]);
+      setVotacoesLoading(true);
+      setVotacoesError(false);
 
       try {
         const dataInfo = await getDeputadoInfo(id);
         if (!dataInfo) throw new Error('Perfil não encontrado');
 
+        if (!active) return;
         setPolitico(dataInfo);
         const nomeParlamentar = dataInfo.ultimoStatus?.nomeEleitoral || dataInfo.nomeEleitoral;
         const ano = parseInt(anoSelecionado, 10);
@@ -107,7 +139,7 @@ const PoliticianProfilePage = () => {
           listaDespesas,
           listaEventos,
           listaDiscursos,
-          listaVotacoes,
+          resumoPortal,
           listaValidadas,
           moradia,
         ] = await Promise.all([
@@ -115,7 +147,7 @@ const PoliticianProfilePage = () => {
           getDeputadoDespesas(id, ano),
           getDeputadoEventos(id, ano),
           getDeputadoDiscursos(id, ano),
-          getDeputadoVotacoes(id, ano),
+          getDeputadoPortalResumo(id, ano).catch(() => null),
           nomeParlamentar
             ? fetchValidatedMetrics({ parlamentar: nomeParlamentar, ano: anoSelecionado })
               .then((result) => result.data || [])
@@ -124,7 +156,13 @@ const PoliticianProfilePage = () => {
           fetchDeputyHousingBenefits(id),
         ]);
 
-        if (!listaProposicoes || !listaDespesas || !listaEventos || !listaDiscursos || !listaVotacoes) {
+        if (!active) return;
+
+        const officialLists = [listaProposicoes, listaDespesas, listaEventos, listaDiscursos];
+        if (
+          officialLists.some((list) => !list || list.__meta?.error) ||
+          resumoPortal?.__meta?.error
+        ) {
           setPartialError(true);
         }
 
@@ -132,7 +170,7 @@ const PoliticianProfilePage = () => {
         setDespesas(listaDespesas || []);
         setEventos(listaEventos || []);
         setDiscursos(listaDiscursos || []);
-        setVotacoes(listaVotacoes || []);
+        setPortalResumo(resumoPortal || null);
         setMetricasValidadas(listaValidadas || []);
         setAusteritySeal(
           buildAusteritySeal({
@@ -153,22 +191,59 @@ const PoliticianProfilePage = () => {
           buildSpendingAttentionPoints([...annualSummaries, currentSummary])
             .filter((point) => String(point.deputyId) === String(currentSummary.deputado_id))
         );
+
+        getDeputadoVotacoes(id, ano)
+          .then((listaVotacoes) => {
+            if (active) {
+              setVotacoes(listaVotacoes || []);
+              setVotacoesLoading(false);
+            }
+          })
+          .catch((error) => {
+            console.warn('Votacoes detalhadas nao carregaram:', error);
+            if (active) {
+              setVotacoesError(true);
+              setVotacoesLoading(false);
+              setPartialError(true);
+            }
+          });
       } catch (error) {
         console.error('Erro ao carregar perfil:', error);
-        toast({ title: 'Erro', description: 'Não foi possível carregar os dados oficiais.', variant: 'destructive' });
+        if (active) {
+          const notFound = error?.status === 404 || error?.message === 'Perfil não encontrado';
+          setVotacoesLoading(false);
+          setProfileLoadError({
+            notFound,
+            title: notFound ? 'Deputado não encontrado' : 'Perfil temporariamente indisponível',
+            description: notFound
+              ? 'A Câmara não retornou um deputado para este identificador.'
+              : 'A fonte oficial não respondeu. Nenhum número foi exibido como se estivesse atualizado.',
+          });
+          toast({
+            title: notFound ? 'Perfil não encontrado' : 'Fonte oficial indisponível',
+            description: notFound
+              ? 'Confira o endereço ou volte para a lista de deputados.'
+              : 'Tente novamente em instantes. O restante do FISCALIZA continua disponível.',
+            variant: 'destructive',
+          });
+        }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
 
     carregarDados();
-  }, [id, anoSelecionado, toast]);
+
+    return () => {
+      active = false;
+    };
+  }, [id, anoSelecionado, reloadAttempt, toast]);
 
   const metrics = useMemo(
-    () => buildDeputadoMetrics({ proposicoes, despesas, eventos, discursos, votacoes, deputadoId: id, ano: anoSelecionado }),
-    [anoSelecionado, despesas, discursos, eventos, id, proposicoes, votacoes]
+    () => buildDeputadoMetrics({ proposicoes, despesas, eventos, discursos, votacoes, portalResumo, deputadoId: id, ano: anoSelecionado }),
+    [anoSelecionado, despesas, discursos, eventos, id, portalResumo, proposicoes, votacoes]
   );
-  const fiscalizationIndex = useMemo(() => buildFiscalizationIndex(metrics), [metrics]);
+  const dataCoverage = useMemo(() => buildProfileDataCoverage(metrics), [metrics]);
   const projetosComplexos = useMemo(() => filterComplexProjects(proposicoes), [proposicoes]);
   const graficoData = useMemo(() => groupExpensesByType(despesas), [despesas]);
   const graficoMensal = useMemo(() => groupExpensesByMonth(despesas), [despesas]);
@@ -182,7 +257,35 @@ const PoliticianProfilePage = () => {
   }
 
   if (!politico) {
-    return <div className="min-h-screen flex items-center justify-center bg-gray-50">Deputado não encontrado.</div>;
+    return (
+      <div className="min-h-[70vh] bg-gray-50 px-4 py-16">
+        <Card className="mx-auto max-w-xl border-amber-200">
+          <CardContent className="p-8 text-center">
+            <AlertTriangle className="mx-auto mb-4 h-10 w-10 text-amber-600" aria-hidden="true" />
+            <h1 className="text-2xl font-black text-gray-950">
+              {profileLoadError?.title || 'Perfil indisponível'}
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-gray-600">
+              {profileLoadError?.description || 'Não foi possível confirmar este perfil na fonte oficial.'}
+            </p>
+            <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+              {!profileLoadError?.notFound && (
+                <Button type="button" onClick={() => setReloadAttempt((attempt) => attempt + 1)}>
+                  <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Tentar novamente
+                </Button>
+              )}
+              <Button asChild variant="outline">
+                <Link to="/deputados">
+                  <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Voltar aos deputados
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   const info = politico.ultimoStatus || politico;
@@ -220,7 +323,7 @@ const PoliticianProfilePage = () => {
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Ano consultado</p>
               <div className="flex gap-2 mt-3">
                 {anosDisponiveis.map((ano) => (
-                  <Button key={ano} variant={anoSelecionado === ano ? 'default' : 'outline'} size="sm" onClick={() => setAnoSelecionado(ano)}>
+                  <Button key={ano} variant={anoSelecionado === ano ? 'default' : 'outline'} size="sm" onClick={() => handleYearChange(ano)}>
                     {ano}
                   </Button>
                 ))}
@@ -244,6 +347,10 @@ const PoliticianProfilePage = () => {
           />
         </div>
 
+        <div className="mb-6">
+          <KpiVerificationPanel deputyId={id} year={anoSelecionado} metrics={metrics} />
+        </div>
+
         <Tabs defaultValue="indicadores" className="w-full">
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
             <TabsTrigger value="indicadores"><BarChart3 className="w-4 h-4 mr-2" /> Indicadores</TabsTrigger>
@@ -265,10 +372,12 @@ const PoliticianProfilePage = () => {
               <TrustMetricCard metric={metrics.maiorFornecedor} />
               <TrustMetricCard metric={metrics.atividades} />
               <TrustMetricCard metric={metrics.discursos} />
+              <TrustMetricCard metric={metrics.votacoesPlenario} />
               <TrustMetricCard metric={metrics.votacoesNominais} />
+              <TrustMetricCard metric={metrics.presencaPlenario} />
+              <TrustMetricCard metric={metrics.presencaComissoes} />
               <TrustMetricCard metric={metrics.relatorias} />
-              <TrustMetricCard metric={metrics.presenca} />
-              <TrustMetricCard metric={fiscalizationIndex} />
+              <TrustMetricCard metric={dataCoverage} />
             </div>
           </TabsContent>
 
@@ -285,7 +394,13 @@ const PoliticianProfilePage = () => {
           </TabsContent>
 
           <TabsContent value="votacoes" className="mt-6">
-            <VotingHighlightsPanel votacoes={votacoes} ano={anoSelecionado} metric={metrics.votacoesNominais} />
+            <VotingHighlightsPanel
+              votacoes={votacoes}
+              ano={anoSelecionado}
+              metric={metrics.votacoesNominais}
+              loading={votacoesLoading}
+              error={votacoesError}
+            />
           </TabsContent>
 
           <TabsContent value="gastos" className="mt-6">

@@ -45,7 +45,7 @@ const HomePage = () => {
       </Helmet>
 
       <section className="relative overflow-hidden bg-black px-4 pb-16 pt-14 text-white sm:px-6 md:pb-20 md:pt-16 lg:px-8">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(250,204,21,0.14),transparent_34%),linear-gradient(135deg,#050505_0%,#111111_55%,#1f1600_100%)]" />
+        <div className="absolute inset-0 bg-black" />
         <img
           src="/fiscaliza-onca-investigadora.png"
           alt=""

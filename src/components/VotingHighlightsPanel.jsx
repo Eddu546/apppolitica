@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, ExternalLink, ListChecks } from 'lucide-react';
+import { AlertTriangle, ExternalLink, ListChecks, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { polishText } from '@/lib/display-text';
@@ -26,7 +26,7 @@ const formatNumber = (value) => Number(value || 0).toLocaleString('pt-BR');
 const propositionUrl = (proposition) =>
   proposition?.id
     ? `https://www.camara.leg.br/propostas-legislativas/${proposition.id}`
-    : proposition?.uri || '';
+    : '';
 
 const VoteSummary = ({ summary }) => (
   <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
@@ -45,9 +45,49 @@ const VoteSummary = ({ summary }) => (
   </div>
 );
 
-const VotingHighlightsPanel = ({ votacoes = [], ano, metric }) => {
+const VotingHighlightsPanel = ({ votacoes = [], ano, metric, loading = false, error = false }) => {
   const summary = metric?.breakdown || {};
   const meta = votacoes.__meta || {};
+  const sourceName = meta.sourceName || 'Câmara dos Deputados - Dados Abertos';
+
+  if (loading) {
+    return (
+      <Card className="border-yellow-200 bg-yellow-50" role="status" aria-live="polite">
+        <CardContent className="flex min-h-48 items-center justify-center p-8 text-center">
+          <div>
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-yellow-700" aria-hidden="true" />
+            <h2 className="mt-4 text-lg font-black text-gray-950">Consultando as votações de {ano}</h2>
+            <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-gray-600">
+              O resumo do perfil já pode ser lido. Esta lista detalhada é carregada separadamente para a página continuar rápida.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error && votacoes.length === 0) {
+    return (
+      <Card className="border-yellow-200 bg-yellow-50">
+        <CardContent className="p-6">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-800" aria-hidden="true" />
+            <div>
+              <h2 className="font-black text-gray-950">Detalhamento temporariamente indisponível</h2>
+              <p className="mt-2 text-sm leading-relaxed text-gray-700">
+                A fonte oficial não respondeu à lista individual agora. O FISCALIZA não preencheu a lacuna com estimativas.
+              </p>
+              {metric?.sourceUrl && (
+                <a href={metric.sourceUrl} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center text-sm font-bold text-yellow-900 hover:underline">
+                  Conferir fonte oficial <ExternalLink className="ml-2 h-4 w-4" />
+                </a>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -64,18 +104,24 @@ const VotingHighlightsPanel = ({ votacoes = [], ano, metric }) => {
               </p>
             </div>
             <span className="rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-bold text-blue-700">
-              Fonte: Dados Abertos da Câmara
+              Fonte: {sourceName}
             </span>
           </div>
         </CardContent>
       </Card>
+
+      {meta.portalDirectSourceUsed && (
+        <p className="text-sm text-gray-600">
+          Exibindo um recorte de <strong>{formatNumber(votacoes.length)}</strong> entre <strong>{formatNumber(meta.totalPortalRecords || meta.totalPlenaryCandidates)}</strong> votos nominais listados no portal oficial para este ano.
+        </p>
+      )}
 
       <Card className="border-yellow-200 bg-yellow-50">
         <CardContent className="p-4">
           <div className="flex items-start gap-3 text-sm text-yellow-950">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
             <p>
-              A própria documentação da Câmara informa que o endpoint de votos por votação não lista deputados ausentes. Por isso, esta tela mostra apenas voto registrado; ela não transforma ausência de registro em falta.
+              Esta lista mostra somente votos individuais registrados pela fonte oficial. A ausência de uma linha não é tratada como falta; presenças e ausências aparecem apenas no indicador próprio do Portal da Câmara.
             </p>
           </div>
         </CardContent>
@@ -122,6 +168,8 @@ const VotingHighlightsPanel = ({ votacoes = [], ano, metric }) => {
             const totals = votacao.totals || {};
             const topics = votacao.topics || [];
             const citizenDescription = describeVotingForCitizen(votacao);
+            const publicMatterUrl = propositionUrl(citizenDescription.matter);
+            const technicalSourceUrl = votacao.sourceUrl || (votacao.id ? `https://dadosabertos.camara.leg.br/api/v2/votacoes/${votacao.id}/votos` : '');
 
             return (
               <Card key={votacao.id}>
@@ -196,14 +244,14 @@ const VotingHighlightsPanel = ({ votacoes = [], ano, metric }) => {
                                 <p className="mt-1 text-slate-700">{polishText(citizenDescription.matter.ementa)}</p>
                               )}
                             </div>
-                            {propositionUrl(citizenDescription.matter) && (
+                            {publicMatterUrl && (
                               <a
-                                href={propositionUrl(citizenDescription.matter)}
+                                href={publicMatterUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-blue-700 hover:underline"
                               >
-                                Ver proposição <ExternalLink className="h-3 w-3" />
+                                Ver proposição na Câmara <ExternalLink className="h-3 w-3" />
                               </a>
                             )}
                           </div>
@@ -250,11 +298,22 @@ const VotingHighlightsPanel = ({ votacoes = [], ano, metric }) => {
                       </details>
                     </div>
 
-                    <Button asChild variant="outline" className="shrink-0">
-                      <a href={votacao.sourceUrl || `https://dadosabertos.camara.leg.br/api/v2/votacoes/${votacao.id}/votos`} target="_blank" rel="noopener noreferrer">
-                        Fonte <ExternalLink className="ml-2 h-4 w-4" />
-                      </a>
-                    </Button>
+                    <div className="flex shrink-0 flex-col gap-2">
+                      {publicMatterUrl && (
+                        <Button asChild variant="outline">
+                          <a href={publicMatterUrl} target="_blank" rel="noopener noreferrer">
+                            Proposição na Câmara <ExternalLink className="ml-2 h-4 w-4" />
+                          </a>
+                        </Button>
+                      )}
+                      {technicalSourceUrl && (
+                        <Button asChild variant="outline">
+                          <a href={technicalSourceUrl} target="_blank" rel="noopener noreferrer">
+                            Dados técnicos <ExternalLink className="ml-2 h-4 w-4" />
+                          </a>
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -267,3 +326,4 @@ const VotingHighlightsPanel = ({ votacoes = [], ano, metric }) => {
 };
 
 export default VotingHighlightsPanel;
+
