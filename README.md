@@ -32,7 +32,8 @@ Ha tambem uma integracao opcional com Supabase Free para fila de correcoes e pub
 
 Camadas importantes:
 
-- `src/services/http.js`: cache em memoria, timeout e retry para chamadas oficiais.
+- `src/services/http.js`: cache em memoria, deduplicacao de chamadas simultaneas, timeout, retry e uso identificado do ultimo dado quando a fonte oscila.
+- `src/services/camaraPortal.js`: leitura do resumo e das votacoes nominais exibidas no Portal do Deputado, com cache opcional no Supabase.
 - `src/services/camara.js`: adaptador seguro da Camara.
 - `src/services/senado.js`: adaptador seguro do Senado.
 - `src/services/benefits.js`: checagens oficiais para selo de austeridade.
@@ -120,8 +121,8 @@ Dados individuais de relatorias, votacoes, despesas e discursos do Senado ficam 
 - Projetos legislativos por tipo seguro: PL, PLP, PEC e MPV.
 - Atividades registradas.
 - Discursos registrados.
-- Votacoes nominais relevantes com voto registrado, quando `/votacoes/{id}/votos` retorna o voto do deputado.
-- Indice de Fiscalizacao Cidada.
+- Votacoes nominais relevantes com voto registrado, priorizando a pagina oficial de votacoes do proprio deputado.
+- Cobertura dos dados do perfil, que mede completude das fontes e nao desempenho parlamentar.
 
 ### Senado
 
@@ -136,19 +137,20 @@ Dados individuais de relatorias, votacoes, despesas e discursos do Senado ficam 
 - Proposicoes aprovadas: nao e exibida sem confirmacao por tramitacao/votacao.
 - Rankings nacionais/estaduais de gasto: ficam indisponiveis ate o admin sincronizar uma base anual com pelo menos 450 deputados.
 
-## Indice de Fiscalizacao Cidada
+## Cobertura dos dados do perfil
 
-O indice e calculado pelo FISCALIZA, nao pela Camara ou pelo Senado.
+O percentual e calculado pelo FISCALIZA para informar quanto do perfil recebeu resposta rastreavel. Ele nao avalia qualidade, produtividade, ideologia ou conduta do parlamentar.
 
-Ele combina:
+Ele verifica seis grupos com o mesmo peso:
 
-- Gastos auditaveis.
-- Producao legislativa encontrada.
-- Atividades registradas.
-- Votacoes registradas.
-- Transparencia dos dados disponiveis.
+- gastos declarados;
+- propostas legislativas;
+- relatorias encontradas;
+- presenca oficial;
+- votacoes nominais;
+- discursos em Plenario.
 
-O card sempre informa que e um indicador calculado e deve ser usado como ponto de partida, nao como acusacao.
+Fonte disponivel conta como cobertura integral, resposta parcial conta como meia cobertura e dado indisponivel conta como zero. O card nao deve ser usado para comparar desempenho entre parlamentares.
 
 ## Backend gratuito opcional com Supabase
 
@@ -188,6 +190,7 @@ Permite:
 - Recusar.
 - Validar e publicar uma metrica em `metricas_validadas`.
 - Sincronizar resumos anuais de despesas de deputados em `deputado_ano_resumos`.
+- Sincronizar os totais publicos do Portal do Deputado em `deputado_portal_resumos`, quando a tabela atualizada estiver instalada.
 
 Rota publica:
 
@@ -279,7 +282,13 @@ A comparacao nao define quem e melhor ou pior. Ela organiza perguntas de fiscali
 
 O perfil do deputado tem uma aba `Votacoes`.
 
-Ela usa endpoints oficiais da Camara:
+O primeiro caminho e a pagina publica oficial do proprio deputado:
+
+- `/deputados/{id}/votacoes-nominais-plenario/{ano}`
+
+Essa pagina permite obter de uma vez o total anual mostrado pela Camara, a materia, o voto individual, a data e a presenca informada na sessao. Isso reduz centenas de chamadas por perfil.
+
+Se o portal nao responder ou mudar de estrutura, o FISCALIZA usa como fallback os Dados Abertos da Camara:
 
 - `/api/v2/votacoes`
 - `/api/v2/votacoes/{id}/votos`
@@ -288,7 +297,7 @@ Ela usa endpoints oficiais da Camara:
 - `/arquivos/votacoesObjetos/json/votacoesObjetos-{ano}.json`, para buscar possiveis objetos oficiais da votacao
 - `/arquivos/votacoesProposicoes/json/votacoesProposicoes-{ano}.json`, para buscar proposicoes afetadas pela votacao
 
-O FISCALIZA nao usa `/deputados/{id}/votacoes` como fonte principal, porque o caminho confiavel documentado para voto nominal individual e consultar os votos de cada votacao.
+O fallback limita a quantidade de votacoes candidatas consultadas e processa pequenos lotes para nao sobrecarregar a fonte oficial.
 
 A tela nao tenta listar todas as votacoes do ano. Para manter o site leve e compreensivel, ela monta um recorte de votacoes relevantes por:
 
@@ -298,7 +307,7 @@ A tela nao tenta listar todas as votacoes do ano. Para manter o site leve e comp
 - volume de votos;
 - margem apertada entre `Sim` e `Nao`, quando a fonte fornece esses totais.
 
-Depois o site consulta `/votacoes/{id}/votos` e mostra apenas os itens em que o deputado tem voto registrado. Se a API REST retornar vazio, o FISCALIZA usa os arquivos anuais oficiais da Camara como fallback.
+Depois o site mostra apenas os itens em que existe voto registrado. Se tanto o portal quanto a API REST retornarem vazio, os arquivos anuais oficiais continuam como ultimo fallback.
 
 Cada card tenta traduzir a votacao para o cidadao:
 
@@ -359,6 +368,17 @@ O caminho antigo `/meu-dna` continua ativo como compatibilidade, mas entrega a m
 - Painel de despesas sensiveis depende do nome das categorias CEAP retornadas pela Camara; se a Camara mudar nomes de categorias, o agrupamento deve ser revisado.
 - Senado tem integracoes individuais conservadoras: se a fonte nao for confirmada, a tela mostra indisponivel.
 - A data `fetchedAt` representa o momento em que o FISCALIZA consultou ou calculou o dado.
+- A leitura do Portal do Deputado depende da estrutura HTML publicada pela Camara. Se ela mudar, o parser precisa ser revisado e o site deve sinalizar o dado como indisponivel.
+- Sem cache anual no Supabase, rankings e alertas usam uma amostra ao vivo de ate 27 deputados, distribuida entre UFs quando possivel. Ela nunca deve ser apresentada como ranking nacional completo.
+
+## Checklist de producao
+
+- Executar `npm test -- --run` e `npm run build` antes de publicar.
+- Configurar `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` na Vercel para Production e Preview.
+- Executar o `supabase/schema.sql` atualizado quando houver novas tabelas ou politicas.
+- Conferir `/saude`, `/rankings`, `/alertas`, um perfil de deputado, uma pauta e uma pagina `/fonte/...` na URL publicada.
+- Confirmar que a cobertura do ranking informa `Base completa`, `Base parcial` ou `Amostra ao vivo` corretamente.
+- Nunca publicar `service_role`, senha de admin ou arquivo `.env.local`.
 
 ## Debug comum
 
