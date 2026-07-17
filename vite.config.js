@@ -1,9 +1,12 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from "path"
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+
+  return ({
   plugins: [react()],
   resolve: {
     alias: {
@@ -56,7 +59,30 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/camara/, ''),
         secure: true,
-      }
+      },
+      '/api/portal-transparencia': {
+        target: 'https://api.portaldatransparencia.gov.br',
+        changeOrigin: true,
+        rewrite: (requestPath) => {
+          const [pathname, query = ''] = requestPath.split('?')
+          const params = new URLSearchParams(query)
+          if (params.has('name')) {
+            params.set('nomeAutor', params.get('name'))
+            params.delete('name')
+          }
+          if (params.has('year')) {
+            params.set('ano', params.get('year'))
+            params.delete('year')
+          }
+          const rewrittenPath = pathname.replace(/^\/api\/portal-transparencia/, '/api-de-dados')
+          return params.size ? `${rewrittenPath}?${params}` : rewrittenPath
+        },
+        secure: true,
+        headers: env.PORTAL_TRANSPARENCIA_API_KEY
+          ? { 'chave-api-dados': env.PORTAL_TRANSPARENCIA_API_KEY }
+          : {},
+      },
     }
   }
+  })
 })

@@ -27,6 +27,7 @@ Esta copia do projeto e um front-end Vite com proxies para APIs oficiais:
 - `/api/camara` aponta para `https://dadosabertos.camara.leg.br`
 - `/api/camara-portal` aponta para `https://www.camara.leg.br`
 - `/api/senado` aponta para `https://legis.senado.leg.br/dadosabertos`
+- `/api/portal-transparencia/emendas` e uma funcao serverless da Vercel que protege a chave gratuita do Portal da Transparencia.
 
 Ha tambem uma integracao opcional com Supabase Free para fila de correcoes e publicacao manual de dados validados.
 
@@ -38,6 +39,9 @@ Camadas importantes:
 - `src/services/senado.js`: adaptador seguro do Senado.
 - `src/services/benefits.js`: checagens oficiais para selo de austeridade.
 - `src/services/annualSummaries.js`: cache publico de resumos anuais para medias e rankings.
+- `src/services/amendments.js`: normalizacao e resumo das emendas parlamentares retornadas pelo Portal da Transparencia.
+- `src/lib/legislative-actions.js`: classifica votos registrados sem atribuir a um parlamentar a causa exclusiva de um resultado coletivo.
+- `src/lib/agenda-impact.js`: separa trajetoria legislativa comprovada de impacto social ainda nao demonstrado.
 - `src/lib/data-quality.js`: contrato interno de qualidade dos KPIs.
 - `src/lib/legislative-logic.js`: calculos auditaveis.
 - `src/adapters/parliamentarians.js`: normalizacao comum de deputados e senadores.
@@ -96,6 +100,12 @@ Usado no projeto:
 
 Dados individuais de relatorias, votacoes, despesas e discursos do Senado ficam como indisponiveis nesta integracao quando a fonte nao retorna uma resposta confirmavel.
 
+### Portal da Transparencia
+
+Fonte: `https://portaldatransparencia.gov.br/emendas`
+
+Usado no projeto para consultar emendas por autor e ano, com valores empenhados, liquidados e pagos e a localidade informada na fonte. A chave da API e gratuita, mas deve ficar somente no servidor na variavel `PORTAL_TRANSPARENCIA_API_KEY`.
+
 ## KPIs implementados
 
 ### Deputados
@@ -123,6 +133,24 @@ Dados individuais de relatorias, votacoes, despesas e discursos do Senado ficam 
 - Discursos registrados.
 - Votacoes nominais relevantes com voto registrado, priorizando a pagina oficial de votacoes do proprio deputado.
 - Cobertura dos dados do perfil, que mede completude das fontes e nao desempenho parlamentar.
+- Nota do mandato de 1 a 10, com componentes, cobertura e metodologia visivel no perfil, na comparacao e nos rankings.
+- Atuacoes em votacoes que contribuíram para aprovar, rejeitar, adiar ou alterar pautas, sempre apresentadas como recorte e sem causalidade individual automatica.
+- Aba de emendas com execucao financeira e principais localidades quando o Portal da Transparencia estiver configurado.
+- Bloco de impacto verificavel nas pautas, distinguindo tramitacao comprovada de impacto social ainda nao demonstrado.
+- Busca com sugestoes de deputados, senadores e pautas na pagina inicial e no cabecalho; listas e rankings oferecem sugestoes pelos nomes carregados.
+
+### Nota do mandato
+
+A nota e um indicador calculado pelo FISCALIZA, nao um dado oficial da Camara. A versao 1.0 usa:
+
+- uso da cota, 25%: compara a media mensal da CEAP; gasto zero ou sem registros nao recebe pontuacao;
+- atuacao legislativa, 30%: compara propostas de autoria e propostas relatadas, com maior peso para relatorias;
+- presenca oficial, 30%: usa presencas e ausencias exibidas pelo Portal da Camara em Plenario e comissoes;
+- participacao publica, 15%: compara votacoes nominais em Plenario e discursos registrados.
+
+Os componentes comparativos usam a posicao do deputado dentro da base sincronizada do mesmo ano. Dados ausentes nao viram zero: o peso e retirado e a cobertura diminui. A nota so aparece com pelo menos 50% dos criterios disponiveis e fica marcada como parcial abaixo de 80%.
+
+A nota nao mede honestidade, ideologia, qualidade tecnica individual das propostas ou impacto social. Propostas relatadas nao sao chamadas de relatorios aprovados.
 
 ### Senado
 
@@ -371,10 +399,77 @@ O caminho antigo `/meu-dna` continua ativo como compatibilidade, mas entrega a m
 - A leitura do Portal do Deputado depende da estrutura HTML publicada pela Camara. Se ela mudar, o parser precisa ser revisado e o site deve sinalizar o dado como indisponivel.
 - Sem cache anual no Supabase, rankings e alertas usam uma amostra ao vivo de ate 27 deputados, distribuida entre UFs quando possivel. Ela nunca deve ser apresentada como ranking nacional completo.
 
+## Auditoria, contexto de mandato e metodologia
+
+- A rota protegida `/auditoria-dados` compara, para um deputado e ano, os numeros retornados pela API, os totais exibidos pelo Portal do Deputado e os KPIs calculados pelo FISCALIZA.
+- O perfil informa quando o parlamentar assumiu ou deixou o mandato durante o ano. Valores muito baixos nao sao automaticamente tratados como economia quando o periodo de exercicio foi parcial.
+- A rota publica `/metodologia` explica a nota do mandato, cobertura, rankings, alertas, fontes e limitacoes.
+- Os relatorios do perfil podem ser compartilhados por link ou impressos em PDF pelo proprio navegador.
+- A versao do calculo da nota fica registrada no codigo. Mudancas de pesos ou regras devem atualizar a versao e os testes.
+
+## Rede de fornecedores
+
+A rota `/fornecedores` usa exclusivamente os resumos anuais sincronizados no Supabase para mostrar:
+
+- fornecedores com maior valor agregado na base;
+- quantidade de deputados associados ao fornecedor;
+- concentracao do fornecedor por parlamentar;
+- cobertura do cache usado no calculo.
+
+O campo `fornecedores` foi adicionado a `deputado_ano_resumos`. Caches antigos continuam funcionando, mas precisam ser sincronizados novamente para preencher essa analise.
+
+## Emendas parlamentares
+
+A aba de emendas consulta a funcao serverless `/api/portal-transparencia/emendas`. A funcao:
+
+- mantem `PORTAL_TRANSPARENCIA_API_KEY` apenas no servidor;
+- pagina os resultados oficiais;
+- remove duplicidades;
+- informa se a cobertura ficou completa ou parcial;
+- resume valores empenhados, liquidados e pagos, localidades, funcoes e favorecidos.
+
+Nunca crie uma variavel com prefixo `VITE_` para esta chave. Variaveis `VITE_` ficam publicas no navegador.
+
+## Contexto municipal de saude
+
+O schema prepara a tabela opcional `cnes_municipio_resumos` para cruzar emendas com contexto municipal de saude. O FISCALIZA nao inventa esse contexto e nao consulta anonimamente a Base dos Dados pelo navegador.
+
+Para ativar:
+
+1. Exporte os dados desejados do CNES/Base dos Dados usando um projeto proprio no BigQuery ou outra fonte oficial compativel.
+2. Normalize por codigo IBGE do municipio e periodo.
+3. Importe os resumos para `public.cnes_municipio_resumos`.
+4. Registre fonte, data de referencia e data de importacao.
+
+Sem essa importacao, o painel mostra que a integracao esta preparada, mas o dado ainda nao foi carregado.
+
+## Sincronizacao com retomada
+
+A sincronizacao anual acontece no navegador do administrador. Fechar a aba ou desligar o computador interrompe as chamadas em andamento.
+
+O progresso e salvo localmente e os registros ja gravados no Supabase sao preservados. Ao voltar:
+
+- selecione o mesmo ano;
+- use a opcao para sincronizar apenas os faltantes;
+- tente novamente somente os deputados que falharam.
+
+Assim, a retomada nao precisa recomecar toda a base. Para uma sincronizacao realmente independente da aba aberta, o proximo passo arquitetural e mover o trabalho para uma funcao agendada ou job de servidor.
+
+## Atualizacao do banco
+
+Execute novamente `supabase/schema.sql` para habilitar todas as funcoes novas. As principais adicoes sao:
+
+- coluna `fornecedores` em `deputado_ano_resumos`;
+- tabela `cnes_municipio_resumos`;
+- indices e politicas de acesso correspondentes.
+
+O codigo mantem compatibilidade com o schema anterior ao salvar resumos anuais, mas fornecedores e contexto municipal so aparecem depois da atualizacao.
+
 ## Checklist de producao
 
 - Executar `npm test -- --run` e `npm run build` antes de publicar.
 - Configurar `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` na Vercel para Production e Preview.
+- Para ativar emendas, cadastrar `PORTAL_TRANSPARENCIA_API_KEY` na Vercel. Nao usar `VITE_` nesse nome, pois a chave deve permanecer no servidor.
 - Executar o `supabase/schema.sql` atualizado quando houver novas tabelas ou politicas.
 - Conferir `/saude`, `/rankings`, `/alertas`, um perfil de deputado, uma pauta e uma pagina `/fonte/...` na URL publicada.
 - Confirmar que a cobertura do ranking informa `Base completa`, `Base parcial` ou `Amostra ao vivo` corretamente.
@@ -387,6 +482,7 @@ O caminho antigo `/meu-dna` continua ativo como compatibilidade, mas entrega a m
 - Admin nao carrega correcoes: rode `supabase/schema.sql` e confira se seu e-mail esta em `admin_users`.
 - Sincronizacao termina com `0 salvos / 453 falhas`: rode novamente `supabase/schema.sql`, confirme seu e-mail em `admin_users`, saia do `/admin`, entre de novo e tente sincronizar novamente.
 - Correcoes nao salvam: confira `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
+- Aba de emendas informa integracao pendente: cadastre gratuitamente a chave no Portal da Transparencia e salve-a como `PORTAL_TRANSPARENCIA_API_KEY` na Vercel; depois faca um novo deploy.
 - Build com aviso de Browserslist: e aviso de base de navegadores desatualizada, nao quebra o site.
 
 ## Politica de confiabilidade
