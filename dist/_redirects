@@ -1,4 +1,0 @@
-/api/senado/* https://legis.senado.leg.br/dadosabertos/:splat 200
-/api/camara-portal/* https://www.camara.leg.br/:splat 200
-/api/camara/* https://dadosabertos.camara.leg.br/:splat 200
-/* /index.html 200

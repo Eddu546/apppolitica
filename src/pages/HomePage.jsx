@@ -1,6 +1,6 @@
 import React from 'react';
 import { Helmet } from 'react-helmet';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
@@ -12,12 +12,12 @@ import {
   HeartHandshake,
   Instagram,
   Scale,
-  Search,
   ShieldCheck,
   Twitter,
   Youtube,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import GlobalSearchBox from '@/components/GlobalSearchBox';
 
 const socialLinks = [
   { label: 'YouTube', href: 'https://www.youtube.com/@eduardowilliammm', icon: Youtube },
@@ -28,16 +28,6 @@ const socialLinks = [
 ];
 
 const HomePage = () => {
-  const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = React.useState('');
-
-  const handleSearch = (event) => {
-    event.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-white">
       <Helmet>
@@ -71,23 +61,7 @@ const HomePage = () => {
               proposições, pautas e votações com fonte visível.
             </p>
 
-            <form onSubmit={handleSearch} className="relative mx-auto mb-7 max-w-xl">
-              <Search className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Busque por deputado ou senador..."
-                className="w-full rounded-full border border-yellow-300/30 bg-white py-4 pl-14 pr-32 text-base text-gray-950 shadow-2xl shadow-yellow-950/20 focus:outline-none focus:ring-4 focus:ring-yellow-400/40 sm:text-lg"
-              />
-              <Button
-                type="submit"
-                size="lg"
-                className="absolute bottom-2 right-2 top-2 rounded-full bg-yellow-400 px-5 font-black text-black hover:bg-yellow-300"
-              >
-                Buscar
-              </Button>
-            </form>
+            <GlobalSearchBox variant="hero" placeholder="Busque deputado, senador ou pauta..." />
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               <Button asChild size="lg" className="h-14 rounded-lg bg-yellow-400 px-6 text-base font-black text-black shadow-lg shadow-yellow-950/20 hover:bg-yellow-300">

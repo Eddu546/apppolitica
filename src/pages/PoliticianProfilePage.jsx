@@ -1,15 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, AlertTriangle, BarChart3, DollarSign, ExternalLink, FileText, ListChecks, Loader2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Award, BarChart3, DollarSign, ExternalLink, FileText, ListChecks, Loader2, MapPinned, RefreshCw } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AusteritySealPanel from '@/components/AusteritySealPanel';
+import AmendmentsPanel from '@/components/AmendmentsPanel';
 import CitizenSummaryPanel from '@/components/CitizenSummaryPanel';
 import ExpenseComparisonPanel from '@/components/ExpenseComparisonPanel';
 import KpiVerificationPanel from '@/components/KpiVerificationPanel';
+import LegislativeActionsPanel from '@/components/LegislativeActionsPanel';
+import MandateScoreCard from '@/components/MandateScoreCard';
+import MandateContextPanel from '@/components/MandateContextPanel';
+import ProfileReportTools from '@/components/ProfileReportTools';
 import ProfileAttentionPanel from '@/components/ProfileAttentionPanel';
 import SensitiveCeapPanel from '@/components/SensitiveCeapPanel';
 import { useToast } from '@/components/ui/use-toast';
@@ -17,6 +22,7 @@ import TrustMetricCard from '@/components/TrustMetricCard';
 import ValidatedMetricsPanel from '@/components/ValidatedMetricsPanel';
 import VotingHighlightsPanel from '@/components/VotingHighlightsPanel';
 import { polishText } from '@/lib/display-text';
+import { calculateMandateScore } from '@/lib/mandate-score';
 import { LEGISLATIVE_YEARS, normalizeLegislativeYear } from '@/lib/legislative-years';
 import {
   buildDeputadoMetrics,
@@ -36,11 +42,12 @@ import {
   getDeputadoDespesas,
   getDeputadoDiscursos,
   getDeputadoEventos,
+  getDeputadoHistorico,
   getDeputadoInfo,
   getDeputadoProposicoes,
   getDeputadoVotacoes,
 } from '@/services/camara';
-import { getDeputadoPortalResumo } from '@/services/camaraPortal';
+import { fetchDeputadoPortalYearSummaries, getDeputadoPortalResumo } from '@/services/camaraPortal';
 import {
   analyzeVehicleRentalExpenses,
   buildAusteritySeal,
@@ -94,6 +101,10 @@ const PoliticianProfilePage = () => {
   const [expenseComparison, setExpenseComparison] = useState(null);
   const [attentionPoints, setAttentionPoints] = useState([]);
   const [austeritySeal, setAusteritySeal] = useState(null);
+  const [currentExpenseSummary, setCurrentExpenseSummary] = useState(null);
+  const [expenseCohort, setExpenseCohort] = useState([]);
+  const [portalCohort, setPortalCohort] = useState([]);
+  const [mandateHistory, setMandateHistory] = useState([]);
 
   const anosDisponiveis = LEGISLATIVE_YEARS;
 
@@ -123,6 +134,10 @@ const PoliticianProfilePage = () => {
       setMetricasValidadas([]);
       setExpenseComparison(null);
       setAttentionPoints([]);
+      setCurrentExpenseSummary(null);
+      setExpenseCohort([]);
+      setPortalCohort([]);
+      setMandateHistory([]);
       setVotacoesLoading(true);
       setVotacoesError(false);
 
@@ -142,6 +157,7 @@ const PoliticianProfilePage = () => {
           resumoPortal,
           listaValidadas,
           moradia,
+          historico,
         ] = await Promise.all([
           getDeputadoProposicoes(id, ano),
           getDeputadoDespesas(id, ano),
@@ -154,6 +170,7 @@ const PoliticianProfilePage = () => {
               .catch(() => [])
             : Promise.resolve([]),
           fetchDeputyHousingBenefits(id),
+          getDeputadoHistorico(id).catch(() => []),
         ]);
 
         if (!active) return;
@@ -172,6 +189,7 @@ const PoliticianProfilePage = () => {
         setDiscursos(listaDiscursos || []);
         setPortalResumo(resumoPortal || null);
         setMetricasValidadas(listaValidadas || []);
+        setMandateHistory(historico || []);
         setAusteritySeal(
           buildAusteritySeal({
             vehicleRental: analyzeVehicleRentalExpenses(listaDespesas || [], { deputadoId: id, ano: anoSelecionado }),
@@ -184,8 +202,14 @@ const PoliticianProfilePage = () => {
           despesas: listaDespesas || [],
           ano: anoSelecionado,
         });
-        const summariesResult = await fetchDeputyYearSummaries(anoSelecionado).catch(() => ({ ok: false, data: [] }));
+        setCurrentExpenseSummary(currentSummary);
+        const [summariesResult, portalSummariesResult] = await Promise.all([
+          fetchDeputyYearSummaries(anoSelecionado).catch(() => ({ ok: false, data: [] })),
+          fetchDeputadoPortalYearSummaries(anoSelecionado).catch(() => ({ ok: false, data: [] })),
+        ]);
         const annualSummaries = summariesResult.data || [];
+        setExpenseCohort(annualSummaries);
+        setPortalCohort(portalSummariesResult.data || []);
         setExpenseComparison(computeExpenseComparisons(currentSummary, annualSummaries));
         setAttentionPoints(
           buildSpendingAttentionPoints([...annualSummaries, currentSummary])
@@ -244,6 +268,15 @@ const PoliticianProfilePage = () => {
     [anoSelecionado, despesas, discursos, eventos, id, portalResumo, proposicoes, votacoes]
   );
   const dataCoverage = useMemo(() => buildProfileDataCoverage(metrics), [metrics]);
+  const mandateScore = useMemo(
+    () => calculateMandateScore({
+      expenseSummary: currentExpenseSummary,
+      portalSummary: portalResumo,
+      expenseCohort,
+      portalCohort,
+    }),
+    [currentExpenseSummary, expenseCohort, portalCohort, portalResumo]
+  );
   const projetosComplexos = useMemo(() => filterComplexProjects(proposicoes), [proposicoes]);
   const graficoData = useMemo(() => groupExpensesByType(despesas), [despesas]);
   const graficoMensal = useMemo(() => groupExpensesByMonth(despesas), [despesas]);
@@ -302,16 +335,29 @@ const PoliticianProfilePage = () => {
           <div className="flex flex-col md:flex-row gap-8">
             <img src={info.urlFoto} alt={info.nomeEleitoral} className="w-48 h-48 rounded-full object-cover border-4 border-white shadow-xl bg-gray-200" />
             <div className="flex-1">
-              <h1 className="text-4xl font-extrabold text-gray-900">{info.nomeEleitoral}</h1>
-              <p className="text-lg text-gray-600 mt-2">{info.siglaPartido} / {info.siglaUf}</p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h1 className="text-4xl font-extrabold text-gray-900">{info.nomeEleitoral}</h1>
+                  <p className="text-lg text-gray-600 mt-2">{info.siglaPartido} / {info.siglaUf}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <MandateScoreCard score={mandateScore} compact />
+                  <div className={`rounded-lg border px-3 py-2 ${austeritySeal?.status === 'approved' ? 'border-green-200 bg-green-50 text-green-900' : austeritySeal?.status === 'not_approved' ? 'border-yellow-300 bg-yellow-50 text-yellow-950' : 'border-gray-200 bg-gray-50 text-gray-700'}`}>
+                    <p className="flex items-center gap-1 text-[10px] font-black uppercase"><Award className="h-3.5 w-3.5" /> Austeridade</p>
+                    <p className="mt-1 text-sm font-black">{austeritySeal?.status === 'approved' ? 'Selo concedido' : austeritySeal?.status === 'not_approved' ? 'Não concedido' : 'Em análise'}</p>
+                    <p className="text-[11px]">Carro e moradia oficiais</p>
+                  </div>
+                </div>
+              </div>
               {info.partyCorrection && (
                 <p className="mt-1 text-xs font-semibold text-blue-700">
                   Partido confirmado pela fonte oficial: {info.partyCorrection.sourceName}
                 </p>
               )}
               <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
-                Este perfil mostra apenas indicadores auditáveis ou explicitamente limitados. O FISCALIZA não calcula faltas, relatorias aprovadas ou score geral quando a API não sustenta esse número diretamente.
+                Este perfil mostra indicadores auditáveis ou explicitamente limitados. A nota é calculada pelo FISCALIZA com metodologia pública; ela não mede honestidade, ideologia ou impacto social.
               </div>
+              <div className="mt-4"><ProfileReportTools /></div>
               {partialError && (
                 <div className="mt-4 bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg" role="alert">
                   <p className="font-bold flex items-center"><AlertTriangle className="w-4 h-4 mr-2" /> Dados parciais</p>
@@ -335,6 +381,14 @@ const PoliticianProfilePage = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
+          <MandateScoreCard score={mandateScore} />
+        </div>
+
+        <div className="mb-6">
+          <MandateContextPanel history={mandateHistory} year={anoSelecionado} />
+        </div>
+
+        <div className="mb-6">
           <AusteritySealPanel seal={austeritySeal} />
         </div>
 
@@ -352,11 +406,12 @@ const PoliticianProfilePage = () => {
         </div>
 
         <Tabs defaultValue="indicadores" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+          <TabsList className="grid h-auto w-full grid-cols-2 md:grid-cols-5">
             <TabsTrigger value="indicadores"><BarChart3 className="w-4 h-4 mr-2" /> Indicadores</TabsTrigger>
             <TabsTrigger value="proposicoes"><FileText className="w-4 h-4 mr-2" /> Proposições</TabsTrigger>
             <TabsTrigger value="votacoes"><ListChecks className="w-4 h-4 mr-2" /> Votações</TabsTrigger>
             <TabsTrigger value="gastos"><DollarSign className="w-4 h-4 mr-2" /> Gastos</TabsTrigger>
+            <TabsTrigger value="emendas"><MapPinned className="w-4 h-4 mr-2" /> Emendas</TabsTrigger>
           </TabsList>
 
           <TabsContent value="indicadores" className="mt-6">
@@ -394,13 +449,16 @@ const PoliticianProfilePage = () => {
           </TabsContent>
 
           <TabsContent value="votacoes" className="mt-6">
-            <VotingHighlightsPanel
-              votacoes={votacoes}
-              ano={anoSelecionado}
-              metric={metrics.votacoesNominais}
-              loading={votacoesLoading}
-              error={votacoesError}
-            />
+            <div className="space-y-5">
+              <LegislativeActionsPanel votings={votacoes} loading={votacoesLoading} />
+              <VotingHighlightsPanel
+                votacoes={votacoes}
+                ano={anoSelecionado}
+                metric={metrics.votacoesNominais}
+                loading={votacoesLoading}
+                error={votacoesError}
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="gastos" className="mt-6">
@@ -447,6 +505,10 @@ const PoliticianProfilePage = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="emendas" className="mt-6">
+            <AmendmentsPanel deputyName={info.nomeEleitoral} year={anoSelecionado} />
           </TabsContent>
         </Tabs>
       </div>

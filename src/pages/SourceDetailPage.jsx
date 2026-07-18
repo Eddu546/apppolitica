@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { polishText } from '@/lib/display-text';
+import { getCamaraReadableDatasetUrl } from '@/lib/official-links';
 import {
   formatCurrency,
   formatNumber,
@@ -224,8 +225,9 @@ const SourceDetailPage = () => {
       fetchedAt: records.__meta?.fetchedAt,
       sourceName: records.__meta?.sourceName || 'Câmara dos Deputados - Dados Abertos',
       sourceUrl: records.__meta?.sourceUrl || fallbackSourceUrl,
+      publicUrl: getCamaraReadableDatasetUrl({ deputyId, year, dataset }),
     };
-  }, [datasetConfig, deputyId, records, year]);
+  }, [dataset, datasetConfig, deputyId, records, year]);
 
   const info = deputado?.ultimoStatus || deputado || {};
   const deputyName = info.nomeEleitoral || info.nome || 'Deputado';
@@ -353,8 +355,21 @@ const SourceDetailPage = () => {
                   </div>
                 </div>
 
-                <div className="mt-5 rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-700">
-                  <p className="text-xs font-black uppercase text-gray-500">Fonte oficial consultada</p>
+                <div className="mt-5 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
+                  <p className="text-xs font-black uppercase text-green-800">Página pública da Câmara</p>
+                  <p className="mt-1 leading-relaxed">
+                    Abra a versão feita para leitura humana, já posicionada no deputado e no ano consultado.
+                  </p>
+                  <Button asChild className="mt-3 bg-yellow-400 text-black hover:bg-yellow-300">
+                    <a href={summary.publicUrl} target="_blank" rel="noopener noreferrer">
+                      Conferir na Câmara
+                      <ExternalLink className="ml-2 h-4 w-4" />
+                    </a>
+                  </Button>
+                </div>
+
+                <div className="mt-4 rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-700">
+                  <p className="text-xs font-black uppercase text-gray-500">Endpoint técnico oficial</p>
                   <a
                     href={summary.sourceUrl}
                     target="_blank"
@@ -496,6 +511,19 @@ const SourceDetailPage = () => {
               </div>
 
               <div className="mt-5 space-y-3 text-sm text-gray-700">
+                <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-green-900">
+                  <p className="text-xs font-black uppercase text-green-800">Página pública da Câmara</p>
+                  <p className="mt-1 leading-relaxed">
+                    Mostra o perfil oficial do deputado no ano selecionado, com gráficos e recursos para o cidadão.
+                  </p>
+                  <Button asChild className="mt-3 bg-yellow-400 text-black hover:bg-yellow-300">
+                    <a href={summary.publicUrl} target="_blank" rel="noopener noreferrer">
+                      Conferir gastos na Câmara
+                      <ExternalLink className="ml-2 h-4 w-4" />
+                    </a>
+                  </Button>
+                </div>
+
                 <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
                   <p className="text-xs font-black uppercase text-gray-500">Endpoint técnico oficial</p>
                   <a

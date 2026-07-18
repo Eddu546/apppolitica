@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Activity,
   BarChart3,
   Building2,
-  CheckCircle2,
   ChevronDown,
   ClipboardList,
   FileText,
@@ -13,15 +11,16 @@ import {
   Home,
   Info,
   Menu,
+  Network,
+  BookOpenCheck,
   Scale,
-  Search,
-  Send,
   ShieldAlert,
   Trophy,
   Users,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import GlobalSearchBox from '@/components/GlobalSearchBox';
 import OncaLogo from '@/components/OncaLogo';
 
 const primaryNavigation = [
@@ -34,36 +33,24 @@ const primaryNavigation = [
 ];
 
 const toolNavigation = [
+  { name: 'Fornecedores', href: '/fornecedores', icon: Network },
+  { name: 'Metodologia', href: '/metodologia', icon: BookOpenCheck },
   { name: 'Apoie', href: '/apoie', icon: HeartHandshake, activePaths: ['/apoie', '/apoiar'] },
-  { name: 'Saúde', href: '/saude', icon: Activity, activePaths: ['/saude', '/status'] },
   { name: 'Alertas', href: '/alertas', icon: ShieldAlert },
   { name: 'Meu roteiro', href: '/meu-roteiro', icon: ClipboardList, activePaths: ['/meu-roteiro', '/meu-dna'] },
   { name: 'Comparar', href: '/comparar', icon: Scale },
-  { name: 'Validados', href: '/dados-validados', icon: CheckCircle2 },
-  { name: 'Corrigir', href: '/corrigir', icon: Send },
   { name: 'Sobre', href: '/sobre', icon: Info },
 ];
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
-  const navigate = useNavigate();
 
   useEffect(() => {
     setIsMenuOpen(false);
   }, [location.pathname]);
 
   const isActive = (item) => (item.activePaths || [item.href]).includes(location.pathname);
-
-  const handleSearch = (event) => {
-    event.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-      setSearchQuery('');
-      setIsMenuOpen(false);
-    }
-  };
 
   const renderDesktopLink = (item) => {
     const Icon = item.icon;
@@ -154,18 +141,9 @@ const Header = () => {
             </div>
           </div>
 
-          <form onSubmit={handleSearch} className="relative ml-2 hidden 2xl:block">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Buscar político..."
-              className="w-48 rounded-md border border-yellow-400/30 bg-zinc-900 py-2 pl-4 pr-10 text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 xl:w-56"
-            />
-            <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-yellow-300">
-              <Search className="h-5 w-5" />
-            </button>
-          </form>
+          <div className="ml-2 hidden 2xl:block">
+            <GlobalSearchBox variant="header" />
+          </div>
 
           <div className="lg:hidden">
             <Button
@@ -188,18 +166,9 @@ const Header = () => {
             className="border-t border-yellow-400/20 bg-black lg:hidden"
           >
             <div className="space-y-1 px-2 pb-3 pt-2">
-              <form onSubmit={handleSearch} className="relative p-2">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Buscar político..."
-                  className="w-full rounded-md border border-yellow-400/30 bg-zinc-900 py-2 pl-4 pr-10 text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                />
-                <button type="submit" className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400">
-                  <Search className="h-5 w-5" />
-                </button>
-              </form>
+              <div className="p-2">
+                <GlobalSearchBox variant="mobile" onNavigate={() => setIsMenuOpen(false)} />
+              </div>
 
               <p className="px-3 pt-3 text-xs font-bold uppercase tracking-wide text-yellow-300">Principal</p>
               {primaryNavigation.map(renderMobileLink)}

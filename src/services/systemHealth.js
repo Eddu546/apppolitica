@@ -5,6 +5,20 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const CACHE_YEARS = LEGISLATIVE_YEARS;
 
+const readRecentSyncRuns = () => {
+  if (typeof localStorage === 'undefined') return [];
+  return CACHE_YEARS
+    .map((year) => {
+      try {
+        return JSON.parse(localStorage.getItem(`fiscaliza_sync_run_${year}`) || 'null');
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => Date.parse(b.updatedAt || '') - Date.parse(a.updatedAt || ''));
+};
+
 const getSupabaseBaseUrl = () => {
   if (!SUPABASE_URL) return '';
   return SUPABASE_URL
@@ -267,6 +281,7 @@ const checkOfficialApi = async ({ id, label, url }) => {
 
 export const runSystemHealthCheck = async () => {
   const checkedAt = new Date().toISOString();
+  const syncRuns = readRecentSyncRuns();
   const supabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
   const projectRef = getProjectRef();
   const dashboardUrl = projectRef ? `https://supabase.com/dashboard/project/${projectRef}` : '';
@@ -292,6 +307,7 @@ export const runSystemHealthCheck = async () => {
       ],
       tables: [],
       cache: { years: [], latest: null, status: 'error' },
+      sync: { latest: syncRuns[0] || null, recent: syncRuns },
       recommendations: [
         'Configure VITE_SUPABASE_URL sem /rest/v1 no final.',
         'Configure VITE_SUPABASE_ANON_KEY com a chave publishable/anon do Supabase.',
@@ -299,7 +315,18 @@ export const runSystemHealthCheck = async () => {
     };
   }
 
-  const [metricsTable, summariesTable, correctionsTable, latestCache, admin, camaraApi, senadoApi] = await Promise.all([
+  const [
+    metricsTable,
+    summariesTable,
+    portalSummariesTable,
+    healthContextTable,
+    correctionsTable,
+    latestCache,
+    admin,
+    camaraApi,
+    senadoApi,
+    transparencyApi,
+  ] = await Promise.all([
     fetchTableCount({
       table: 'metricas_validadas',
       label: 'Métricas validadas',
@@ -309,6 +336,16 @@ export const runSystemHealthCheck = async () => {
     fetchTableCount({
       table: 'deputado_ano_resumos',
       label: 'Cache anual de deputados',
+      headers: getPublicHeaders(),
+    }),
+    fetchTableCount({
+      table: 'deputado_portal_resumos',
+      label: 'Cache do Portal do Deputado',
+      headers: getPublicHeaders(),
+    }),
+    fetchTableCount({
+      table: 'cnes_municipio_resumos',
+      label: 'Contexto municipal de saude (opcional)',
       headers: getPublicHeaders(),
     }),
     getAccessToken()
@@ -336,6 +373,11 @@ export const runSystemHealthCheck = async () => {
       id: 'senado-api',
       label: 'Senado Federal',
       url: '/api/senado/senador/lista/atual.json',
+    }),
+    checkOfficialApi({
+      id: 'portal-transparencia-api',
+      label: 'Portal da Transparência',
+      url: '/api/portal-transparencia/emendas?health=1',
     }),
   ]);
 
@@ -389,6 +431,7 @@ export const runSystemHealthCheck = async () => {
     }),
     camaraApi,
     senadoApi,
+    transparencyApi,
   ];
 
   const latestYearWithFullCache = cacheYears.find((item) => item.status === 'ok');
@@ -424,7 +467,13 @@ export const runSystemHealthCheck = async () => {
     },
     admin,
     services,
-    tables: [summariesTable, metricsTable, correctionsTable],
+    tables: [
+      summariesTable,
+      portalSummariesTable,
+      metricsTable,
+      correctionsTable,
+      healthContextTable,
+    ],
     cache: {
       years: cacheYears,
       latest: latestCache,
@@ -433,6 +482,10 @@ export const runSystemHealthCheck = async () => {
         : cacheYears.some((item) => item.status === 'warning')
           ? 'warning'
           : 'empty',
+    },
+    sync: {
+      latest: syncRuns[0] || null,
+      recent: syncRuns,
     },
     recommendations,
   };

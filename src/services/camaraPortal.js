@@ -198,6 +198,28 @@ export const fetchCachedDeputadoPortalResumo = async (deputadoId, ano) => {
   return { ok: true, data: rowToPortalResumo(rows[0] || null) };
 };
 
+export const fetchDeputadoPortalYearSummaries = async (ano) => {
+  if (!isPortalSummaryDatabaseConfigured || !ano) {
+    return { ok: false, reason: 'missing-config', data: [] };
+  }
+
+  const params = new URLSearchParams();
+  params.set('select', '*');
+  params.set('ano', `eq.${ano}`);
+  params.set('order', 'deputado_id.asc');
+  params.set('limit', '1000');
+
+  const response = await fetch(`${getSupabaseRestUrl()}/rest/v1/${PORTAL_SUMMARY_TABLE}?${params.toString()}`, {
+    headers: getPublicHeaders(),
+  });
+
+  if (!response.ok) {
+    return { ok: false, reason: await response.text(), data: [] };
+  }
+
+  return { ok: true, data: await response.json() };
+};
+
 const matchNumbers = (text, regex) => {
   const match = text.match(regex);
   if (!match) return [];

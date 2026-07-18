@@ -3,9 +3,12 @@ import {
   fiscalizaAgendaPath,
   getCamaraPortalAuthorSearchUrl,
   getCamaraPortalDeputyUrl,
+  getCamaraPortalDeputyYearUrl,
   getCamaraPortalDeputyVotesUrl,
   getCamaraPortalPropositionUrl,
   getCamaraPortalRapporteurSearchUrl,
+  getCamaraPortalSearchUrl,
+  getCamaraReadableDatasetUrl,
   getInternalSourcePageFromTechnicalUrl,
   getReadableSourceUrl,
   parseOfficialNumber,
@@ -27,9 +30,38 @@ describe('official links', () => {
 
   it('builds public Camara deputy verification links', () => {
     expect(getCamaraPortalDeputyUrl(204536)).toBe('https://www.camara.leg.br/deputados/204536');
+    expect(getCamaraPortalDeputyYearUrl(204536, 2024)).toBe(
+      'https://www.camara.leg.br/deputados/204536?ano=2024'
+    );
     expect(getCamaraPortalDeputyVotesUrl(204536, 2026)).toBe(
       'https://www.camara.leg.br/deputados/204536/votacoes-nominais-plenario/2026'
     );
+  });
+
+  it('uses the Camara public search parameter instead of an empty generic page', () => {
+    const url = new URL(getCamaraPortalSearchUrl('PL 914/2024'));
+    expect(url.searchParams.get('q')).toBe('PL 914/2024');
+    expect(url.searchParams.get('termo')).toBeNull();
+  });
+
+  it('selects readable public pages for each internal source dataset', () => {
+    expect(getCamaraReadableDatasetUrl({
+      deputyId: 204536,
+      year: 2024,
+      dataset: 'votacoes',
+    })).toContain('/votacoes-nominais-plenario/2024');
+
+    expect(getCamaraReadableDatasetUrl({
+      deputyId: 204536,
+      year: 2024,
+      dataset: 'proposicoes',
+    })).toContain('BuscaProposicoes');
+
+    expect(getCamaraReadableDatasetUrl({
+      deputyId: 204536,
+      year: 2024,
+      dataset: 'despesas',
+    })).toBe('https://www.camara.leg.br/deputados/204536?ano=2024');
   });
 
   it('builds Camara portal searches for authorship and rapporteur checks', () => {

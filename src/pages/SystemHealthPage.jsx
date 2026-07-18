@@ -94,6 +94,7 @@ const getLaunchChecklist = (health) => {
   const admin = health.services.find((item) => item.id === 'admin-allowlist');
   const camara = health.services.find((item) => item.id === 'camara-api');
   const senado = health.services.find((item) => item.id === 'senado-api');
+  const transparency = health.services.find((item) => item.id === 'portal-transparencia-api');
   const fullCacheYear = health.cache.years.find((item) => item.status === 'ok');
   const partialCacheYear = health.cache.years.find((item) => item.status === 'warning');
   const hasTableError = health.tables.some((table) => table.status === 'error');
@@ -148,9 +149,9 @@ const getLaunchChecklist = (health) => {
     {
       id: 'apis',
       title: 'APIs oficiais acessíveis',
-      status: camara?.status === 'ok' && senado?.status === 'ok' ? 'done' : 'attention',
-      summary: camara?.status === 'ok' && senado?.status === 'ok'
-        ? 'Câmara e Senado responderam. O site consegue consultar fontes oficiais agora.'
+      status: camara?.status === 'ok' && senado?.status === 'ok' && transparency?.status === 'ok' ? 'done' : 'attention',
+      summary: camara?.status === 'ok' && senado?.status === 'ok' && transparency?.status === 'ok'
+        ? 'Câmara, Senado e Portal da Transparência responderam. O site consegue consultar as fontes oficiais integradas.'
         : 'Alguma API oficial não respondeu. O site deve exibir limitação em vez de número inventado.',
       actionLabel: 'Atualizar diagnóstico',
       onRefresh: true,
@@ -548,6 +549,36 @@ const SystemHealthPage = () => {
                       <Link to="/admin">Abrir admin</Link>
                     </Button>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <h2 className="text-lg font-black text-slate-950">Última sincronização neste navegador</h2>
+                    {health.sync?.latest ? (
+                      <>
+                        <p className="mt-2 text-sm text-slate-700">
+                          Ano <strong>{health.sync.latest.year}</strong> · estado <strong>{health.sync.latest.status}</strong> ·
+                          {' '}{formatCount(health.sync.latest.current)} de {formatCount(health.sync.latest.total)} processados.
+                        </p>
+                        <p className="mt-1 text-sm text-slate-700">
+                          Sucessos: {formatCount(health.sync.latest.success)} · falhas: {formatCount(health.sync.latest.failed)} · atualizado em {formatDateTime(health.sync.latest.updatedAt)}.
+                        </p>
+                        {health.sync.latest.error && <p className="mt-2 rounded-lg bg-red-50 p-3 text-xs text-red-800">{health.sync.latest.error}</p>}
+                        {health.sync.latest.failures?.length > 0 && (
+                          <p className="mt-2 text-xs text-slate-600">
+                            Falhas recentes: {health.sync.latest.failures.slice(0, 6).map((item) => item.nome).join(', ')}.
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="mt-2 text-sm text-slate-600">Nenhuma rodada foi registrada neste navegador.</p>
+                    )}
+                  </div>
+                  <Button asChild variant="outline"><Link to="/admin">Retomar no admin</Link></Button>
                 </div>
               </CardContent>
             </Card>

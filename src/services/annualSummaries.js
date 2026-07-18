@@ -88,6 +88,32 @@ const buildCategoryBreakdown = (despesas = []) => {
   return Object.values(grouped).sort((a, b) => b.value - a.value);
 };
 
+const normalizeSupplierTaxId = (value = '') => String(value).replace(/\D/g, '');
+
+export const buildSupplierBreakdown = (despesas = []) => {
+  const grouped = despesas.reduce((acc, item) => {
+    const value = parseMoney(item.valorLiquido);
+    if (value <= 0) return acc;
+
+    const taxId = normalizeSupplierTaxId(item.cnpjCpfFornecedor);
+    const name = String(item.nomeFornecedor || 'Fornecedor não informado').trim();
+    const key = taxId || name.toLocaleUpperCase('pt-BR');
+
+    acc[key] = {
+      id: key,
+      name,
+      taxId: taxId || null,
+      value: Number(((acc[key]?.value || 0) + value).toFixed(2)),
+      count: (acc[key]?.count || 0) + 1,
+    };
+    return acc;
+  }, {});
+
+  return Object.values(grouped)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 30);
+};
+
 export const buildDeputyAnnualExpenseSummary = ({ deputado, despesas = [], ano }) => {
   const identity = getDeputyIdentity(deputado);
   const total = despesas.reduce((acc, item) => acc + parseMoney(item.valorLiquido), 0);
@@ -108,6 +134,7 @@ export const buildDeputyAnnualExpenseSummary = ({ deputado, despesas = [], ano }
     maior_fornecedor: topSupplier?.name || null,
     maior_fornecedor_valor: topSupplier ? Number(topSupplier.value.toFixed(2)) : null,
     categorias: buildCategoryBreakdown(despesas),
+    fornecedores: buildSupplierBreakdown(despesas),
     status: hasOfficialResponse ? 'available' : 'partial',
     source_name: 'Camara dos Deputados - Dados Abertos',
     source_url: `https://dadosabertos.camara.leg.br/api/v2/deputados/${identity.id}/despesas?ano=${ano}`,
@@ -115,6 +142,60 @@ export const buildDeputyAnnualExpenseSummary = ({ deputado, despesas = [], ano }
     calculation_method: 'Resumo anual calculado pelo FISCALIZA a partir da soma dos valores liquidos das despesas CEAP retornadas pela API da Camara.',
     confidence_level: hasOfficialResponse ? 'high' : 'medium',
   };
+};
+
+export const parseSummarySuppliers = (summary) => {
+  if (Array.isArray(summary?.fornecedores)) return summary.fornecedores;
+  if (typeof summary?.fornecedores !== 'string') return [];
+
+  try {
+    const parsed = JSON.parse(summary.fornecedores);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+export const buildSupplierNetwork = (summaries = []) => {
+  const suppliers = new Map();
+
+  summaries.forEach((summary) => {
+    parseSummarySuppliers(summary).forEach((supplier) => {
+      const key = supplier.taxId
+        || supplier.id
+        || String(supplier.name || '').toLocaleUpperCase('pt-BR');
+      if (!key) return;
+
+      const current = suppliers.get(key) || {
+        id: key,
+        name: supplier.name || 'Fornecedor não informado',
+        taxId: supplier.taxId || null,
+        value: 0,
+        records: 0,
+        deputies: [],
+      };
+
+      current.value += Number(supplier.value || 0);
+      current.records += Number(supplier.count || 0);
+      current.deputies.push({
+        id: summary.deputado_id,
+        name: summary.nome,
+        party: summary.partido,
+        state: summary.uf,
+        value: Number(supplier.value || 0),
+      });
+      suppliers.set(key, current);
+    });
+  });
+
+  return [...suppliers.values()]
+    .map((supplier) => ({
+      ...supplier,
+      value: Number(supplier.value.toFixed(2)),
+      deputies: supplier.deputies.sort((a, b) => b.value - a.value),
+      deputyCount: new Set(supplier.deputies.map((item) => item.id)).size,
+    }))
+    .sort((a, b) => b.value - a.value);
 };
 
 export const parseSummaryCategories = (summary) => {
@@ -438,24 +519,33 @@ export const upsertDeputyYearSummary = async (summary) => {
     return { ok: false, reason: 'missing-config' };
   }
 
-  const response = await fetch(
-    `${getSupabaseRestUrl()}/rest/v1/deputado_ano_resumos?on_conflict=ano,deputado_id`,
-    {
+  const url = `${getSupabaseRestUrl()}/rest/v1/deputado_ano_resumos?on_conflict=ano,deputado_id`;
+  const writeSummary = (payload) => fetch(url, {
       method: 'POST',
       headers: {
         ...getAuthHeaders(),
         'Content-Type': 'application/json',
         Prefer: 'resolution=merge-duplicates,return=minimal',
       },
-      body: JSON.stringify({
-        ...summary,
-        updated_at: new Date().toISOString(),
-      }),
-    }
-  );
+      body: JSON.stringify(payload),
+    });
+  const payload = {
+    ...summary,
+    updated_at: new Date().toISOString(),
+  };
+  let response = await writeSummary(payload);
 
   if (!response.ok) {
     const message = await readResponseMessage(response, 'Falha ao salvar resumo anual');
+    const normalized = String(message).toLowerCase();
+    if (normalized.includes('fornecedores') && normalized.includes('column')) {
+      const legacyPayload = { ...payload };
+      delete legacyPayload.fornecedores;
+      response = await writeSummary(legacyPayload);
+      if (response.ok) return { ok: true, legacySchema: true };
+      const retryMessage = await readResponseMessage(response, 'Falha ao salvar resumo no schema anterior');
+      throw new Error(explainAnnualSummaryError(retryMessage));
+    }
     throw new Error(explainAnnualSummaryError(message));
   }
 

@@ -1,1 +1,0 @@
-const o=()=>new Date().getFullYear(),E=({startYear:e=2023,endYear:r=o()}={})=>{const t=Number(e),s=Math.max(t,Number(r));return Array.from({length:s-t+1},(i,a)=>String(t+a))},n=E(),L=n.at(-1),A=(e,r=L)=>{const t=String(e||"");return n.includes(t)?t:r};export{L as D,n as L,A as n};

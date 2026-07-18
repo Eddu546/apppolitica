@@ -3,6 +3,8 @@ import {
   buildDeputyAnnualExpenseSummary,
   buildSensitiveCategoryAttentionPoints,
   buildSpendingAttentionPoints,
+  buildSupplierBreakdown,
+  buildSupplierNetwork,
   computeExpenseComparisons,
   decorateSummariesWithSensitiveCategory,
   getSensitiveCategoryAmountFromSummary,
@@ -45,6 +47,23 @@ describe('annual summaries', () => {
     ]);
     expect(summary.status).toBe('available');
     expect(summary.calculation_method).toContain('valores liquidos');
+  });
+
+  it('agrupa fornecedores por documento e cria rede entre deputados', () => {
+    const suppliers = buildSupplierBreakdown([
+      { valorLiquido: '100', nomeFornecedor: 'Empresa A', cnpjCpfFornecedor: '11.111.111/0001-11' },
+      { valorLiquido: '200', nomeFornecedor: 'Empresa A Ltda', cnpjCpfFornecedor: '11.111.111/0001-11' },
+    ]);
+
+    expect(suppliers).toHaveLength(1);
+    expect(suppliers[0].value).toBe(300);
+
+    const network = buildSupplierNetwork([
+      { deputado_id: '1', nome: 'Deputado A', fornecedores: suppliers },
+      { deputado_id: '2', nome: 'Deputado B', fornecedores: suppliers },
+    ]);
+    expect(network[0].deputyCount).toBe(2);
+    expect(network[0].value).toBe(600);
   });
 
   it('bloqueia ranking nacional quando a base anual esta incompleta', () => {

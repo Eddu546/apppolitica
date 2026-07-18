@@ -14,7 +14,11 @@ import {
   getDeputadoVotacoes,
 } from '@/services/camara';
 import { buildDeputadoMetrics } from '@/lib/legislative-logic';
+import { calculateMandateScore } from '@/lib/mandate-score';
 import { buildSensitiveCeapSummary } from '@/services/benefits';
+import MandateScoreCard from '@/components/MandateScoreCard';
+import { buildDeputyAnnualExpenseSummary, fetchDeputyYearSummaries } from '@/services/annualSummaries';
+import { fetchDeputadoPortalYearSummaries, getDeputadoPortalResumo } from '@/services/camaraPortal';
 import { polishText } from '@/lib/display-text';
 import { filterAndSortByName } from '@/lib/search';
 import { DEFAULT_LEGISLATIVE_YEAR, LEGISLATIVE_YEARS } from '@/lib/legislative-years';
@@ -181,9 +185,9 @@ const DeputySearchPicker = ({ label, deputados, selectedDeputado, onSelect }) =>
   );
 };
 
-const PoliticianSummary = ({ deputado, anoSelecionado, toast }) => {
+const PoliticianSummary = ({ deputado, anoSelecionado, toast, scoreCohorts }) => {
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState({ proposicoes: [], despesas: [], eventos: [], discursos: [], votacoes: [] });
+  const [data, setData] = useState({ proposicoes: [], despesas: [], eventos: [], discursos: [], votacoes: [], portalResumo: null });
 
   useEffect(() => {
     const fetchIndicadores = async () => {
@@ -192,12 +196,13 @@ const PoliticianSummary = ({ deputado, anoSelecionado, toast }) => {
       const ano = parseInt(anoSelecionado, 10);
 
       try {
-        const [proposicoes, despesas, eventos, discursos, votacoes] = await Promise.all([
+        const [proposicoes, despesas, eventos, discursos, votacoes, portalResumo] = await Promise.all([
           getDeputadoProposicoes(deputado.id, ano),
           getDeputadoDespesas(deputado.id, ano),
           getDeputadoEventos(deputado.id, ano),
           getDeputadoDiscursos(deputado.id, ano),
           getDeputadoVotacoes(deputado.id, ano),
+          getDeputadoPortalResumo(deputado.id, ano).catch(() => null),
         ]);
 
         setData({
@@ -206,6 +211,7 @@ const PoliticianSummary = ({ deputado, anoSelecionado, toast }) => {
           eventos: eventos || [],
           discursos: discursos || [],
           votacoes: votacoes || [],
+          portalResumo,
         });
       } catch (error) {
         console.error(`Erro ao carregar indicadores para ${deputado.nome}:`, error);
@@ -219,6 +225,19 @@ const PoliticianSummary = ({ deputado, anoSelecionado, toast }) => {
   }, [deputado, anoSelecionado, toast]);
 
   const metrics = useMemo(() => buildDeputadoMetrics(data), [data]);
+  const expenseSummary = useMemo(
+    () => buildDeputyAnnualExpenseSummary({ deputado, despesas: data.despesas, ano: anoSelecionado }),
+    [anoSelecionado, data.despesas, deputado]
+  );
+  const mandateScore = useMemo(
+    () => calculateMandateScore({
+      expenseSummary,
+      portalSummary: data.portalResumo,
+      expenseCohort: scoreCohorts.expenses,
+      portalCohort: scoreCohorts.portal,
+    }),
+    [data.portalResumo, expenseSummary, scoreCohorts]
+  );
   const sensitiveCeapSummary = useMemo(
     () => buildSensitiveCeapSummary(data.despesas, { deputadoId: deputado?.id, ano: anoSelecionado }),
     [anoSelecionado, data.despesas, deputado?.id]
@@ -252,6 +271,9 @@ const PoliticianSummary = ({ deputado, anoSelecionado, toast }) => {
         </div>
       </CardHeader>
       <CardContent className="flex-grow flex flex-col">
+        <div className="mb-4">
+          <MandateScoreCard score={mandateScore} compact />
+        </div>
         <div className="grid grid-cols-1 gap-3 mb-6">
           <MetricRow metric={metrics.projetosLegislativos} />
           <MetricRow metric={metrics.totalGastoAno} />
@@ -275,6 +297,7 @@ const ComparisonPage = () => {
   const [selectedDeputado2, setSelectedDeputado2] = useState(null);
   const [loadingList, setLoadingList] = useState(true);
   const [anoSelecionado, setAnoSelecionado] = useState(DEFAULT_LEGISLATIVE_YEAR);
+  const [scoreCohorts, setScoreCohorts] = useState({ expenses: [], portal: [] });
 
   useEffect(() => {
     const fetchDeputados = async () => {
@@ -292,6 +315,17 @@ const ComparisonPage = () => {
 
     fetchDeputados();
   }, [toast]);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      fetchDeputyYearSummaries(anoSelecionado).catch(() => ({ data: [] })),
+      fetchDeputadoPortalYearSummaries(anoSelecionado).catch(() => ({ data: [] })),
+    ]).then(([expenses, portal]) => {
+      if (active) setScoreCohorts({ expenses: expenses.data || [], portal: portal.data || [] });
+    });
+    return () => { active = false; };
+  }, [anoSelecionado]);
 
   const anosDisponiveis = LEGISLATIVE_YEARS;
 
@@ -342,7 +376,7 @@ const ComparisonPage = () => {
                 selectedDeputado={selectedDeputado1}
                 onSelect={setSelectedDeputado1}
               />
-              <PoliticianSummary deputado={selectedDeputado1} anoSelecionado={anoSelecionado} toast={toast} />
+              <PoliticianSummary deputado={selectedDeputado1} anoSelecionado={anoSelecionado} toast={toast} scoreCohorts={scoreCohorts} />
             </div>
 
             <div className="space-y-6">
@@ -352,7 +386,7 @@ const ComparisonPage = () => {
                 selectedDeputado={selectedDeputado2}
                 onSelect={setSelectedDeputado2}
               />
-              <PoliticianSummary deputado={selectedDeputado2} anoSelecionado={anoSelecionado} toast={toast} />
+              <PoliticianSummary deputado={selectedDeputado2} anoSelecionado={anoSelecionado} toast={toast} scoreCohorts={scoreCohorts} />
             </div>
           </div>
         )}

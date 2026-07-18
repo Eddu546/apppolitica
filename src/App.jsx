@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { Helmet } from 'react-helmet';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import AppErrorBoundary from '@/components/AppErrorBoundary';
+import AdminOnlyRoute from '@/components/AdminOnlyRoute';
 import Footer from '@/components/Footer';
 import Header from '@/components/Header';
 import PageLoader from '@/components/PageLoader';
@@ -29,6 +30,9 @@ const MajorAgendasPage = lazy(() => import('@/pages/MajorAgendasPage'));
 const AgendaDetailPage = lazy(() => import('@/pages/AgendaDetailPage'));
 const SystemHealthPage = lazy(() => import('@/pages/SystemHealthPage'));
 const SourceDetailPage = lazy(() => import('@/pages/SourceDetailPage'));
+const DataAuditPage = lazy(() => import('@/pages/DataAuditPage'));
+const SuppliersPage = lazy(() => import('@/pages/SuppliersPage'));
+const MethodologyPage = lazy(() => import('@/pages/MethodologyPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 const AppRoutes = () => (
@@ -56,12 +60,15 @@ const AppRoutes = () => (
       <Route path="/apoie" element={<SupportPage />} />
       <Route path="/apoiar" element={<SupportPage />} />
       <Route path="/comparar" element={<ComparisonPage />} />
-      <Route path="/corrigir" element={<CorrectionPage />} />
-      <Route path="/dados-validados" element={<ValidatedMetricsPage />} />
+      <Route path="/corrigir" element={<AdminOnlyRoute><CorrectionPage /></AdminOnlyRoute>} />
+      <Route path="/dados-validados" element={<AdminOnlyRoute><ValidatedMetricsPage /></AdminOnlyRoute>} />
       <Route path="/admin" element={<AdminCorrectionsPage />} />
-      <Route path="/saude" element={<SystemHealthPage />} />
-      <Route path="/status" element={<SystemHealthPage />} />
+      <Route path="/saude" element={<AdminOnlyRoute><SystemHealthPage /></AdminOnlyRoute>} />
+      <Route path="/status" element={<AdminOnlyRoute><SystemHealthPage /></AdminOnlyRoute>} />
+      <Route path="/auditoria-dados" element={<AdminOnlyRoute><DataAuditPage /></AdminOnlyRoute>} />
       <Route path="/fonte/deputado/:deputyId/:dataset/:year" element={<SourceDetailPage />} />
+      <Route path="/fornecedores" element={<SuppliersPage />} />
+      <Route path="/metodologia" element={<MethodologyPage />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   </Suspense>

@@ -40,6 +40,11 @@ export const getCamaraPortalPropositionUrl = (id) =>
 export const getCamaraPortalDeputyUrl = (deputyId) =>
   deputyId ? `${CAMARA_PORTAL_BASE}/deputados/${encodeURIComponent(deputyId)}` : '';
 
+export const getCamaraPortalDeputyYearUrl = (deputyId, year) =>
+  deputyId && year
+    ? `${getCamaraPortalDeputyUrl(deputyId)}?ano=${encodeURIComponent(year)}`
+    : getCamaraPortalDeputyUrl(deputyId);
+
 export const getCamaraPortalDeputyVotesUrl = (deputyId, year) =>
   deputyId && year
     ? `${CAMARA_PORTAL_BASE}/deputados/${encodeURIComponent(deputyId)}/votacoes-nominais-plenario/${encodeURIComponent(year)}`
@@ -78,9 +83,24 @@ export const getCamaraPortalSearchUrl = (term = '') => {
     contextoBusca: 'BuscaGeral',
     pagina: '1',
     order: 'relevancia',
-    termo: normalizeOfficialNumberLabel(term),
+    abaEspecifica: 'false',
+    q: normalizeOfficialNumberLabel(term),
   });
   return `${CAMARA_PORTAL_BASE}/busca-portal?${params.toString()}`;
+};
+
+export const getCamaraReadableDatasetUrl = ({ deputyId, year, dataset } = {}) => {
+  if (!deputyId) return '';
+
+  if (dataset === 'proposicoes') {
+    return getCamaraPortalAuthorSearchUrl(deputyId, year);
+  }
+
+  if (dataset === 'votacoes') {
+    return getCamaraPortalDeputyVotesUrl(deputyId, year);
+  }
+
+  return getCamaraPortalDeputyYearUrl(deputyId, year);
 };
 
 const getUrl = (sourceUrl = '') => {

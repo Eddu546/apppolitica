@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
-import { BarChart3, CheckCircle2, Loader2, LogOut, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Activity, BarChart3, CheckCircle2, Loader2, LogOut, RefreshCw, Send, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -11,7 +12,10 @@ import {
   upsertDeputyYearSummary,
 } from '@/services/annualSummaries';
 import { getAllDeputadosList, getDeputadoDespesas } from '@/services/camara';
-import { upsertDeputadoPortalResumoCache } from '@/services/camaraPortal';
+import {
+  fetchDeputadoPortalYearSummaries,
+  upsertDeputadoPortalResumoCache,
+} from '@/services/camaraPortal';
 import { DEFAULT_LEGISLATIVE_YEAR, LEGISLATIVE_YEARS } from '@/lib/legislative-years';
 import {
   fetchCorrections,
@@ -33,6 +37,7 @@ const statusLabels = {
 const DEFAULT_SYNC_PROGRESS = { current: 0, total: 0, success: 0, failed: 0, skipped: 0 };
 
 const getFailureStorageKey = (year) => `fiscaliza_sync_failures_${year}`;
+const getRunStorageKey = (year) => `fiscaliza_sync_run_${year}`;
 
 const readStoredSyncFailures = (year) => {
   if (typeof window === 'undefined') return [];
@@ -53,6 +58,24 @@ const saveStoredSyncFailures = (year, failures) => {
 const clearStoredSyncFailures = (year) => {
   if (typeof window === 'undefined') return;
   window.localStorage.removeItem(getFailureStorageKey(year));
+};
+
+const readStoredSyncRun = (year) => {
+  if (typeof window === 'undefined') return null;
+  try {
+    return JSON.parse(window.localStorage.getItem(getRunStorageKey(year)) || 'null');
+  } catch {
+    return null;
+  }
+};
+
+const saveStoredSyncRun = (year, payload) => {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(getRunStorageKey(year), JSON.stringify({
+    year,
+    updatedAt: new Date().toISOString(),
+    ...payload,
+  }));
 };
 
 const getSyncModeLabel = (mode) => {
@@ -80,6 +103,8 @@ const getSyncConfirmationMessage = ({ mode, year, failureCount }) => {
 };
 
 const AdminCorrectionsPage = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [session, setSession] = useState(() => getAdminSession());
   const [items, setItems] = useState([]);
@@ -93,6 +118,7 @@ const AdminCorrectionsPage = () => {
   const [syncMessage, setSyncMessage] = useState('');
   const [syncError, setSyncError] = useState('');
   const [savedSummaryCount, setSavedSummaryCount] = useState(null);
+  const [savedPortalSummaryCount, setSavedPortalSummaryCount] = useState(null);
   const [lastFailures, setLastFailures] = useState(() => readStoredSyncFailures(DEFAULT_LEGISLATIVE_YEAR));
   const adminEmail = getLoggedAdminEmail();
 
@@ -124,19 +150,53 @@ const AdminCorrectionsPage = () => {
 
     let ignore = false;
     setSavedSummaryCount(null);
+    setSavedPortalSummaryCount(null);
 
-    fetchDeputyYearSummaries(syncYear)
-      .then((result) => {
-        if (!ignore) setSavedSummaryCount(result.data.length);
+    Promise.all([
+      fetchDeputyYearSummaries(syncYear).catch(() => ({ data: [] })),
+      fetchDeputadoPortalYearSummaries(syncYear).catch(() => ({ data: [] })),
+    ])
+      .then(([expenseResult, portalResult]) => {
+        if (ignore) return;
+        setSavedSummaryCount(expenseResult.data?.length ?? 0);
+        setSavedPortalSummaryCount(portalResult.data?.length ?? 0);
       })
       .catch(() => {
-        if (!ignore) setSavedSummaryCount(null);
+        if (ignore) return;
+        setSavedSummaryCount(null);
+        setSavedPortalSummaryCount(null);
       });
 
     return () => {
       ignore = true;
     };
   }, [session, syncYear]);
+
+  useEffect(() => {
+    const interruptedRun = readStoredSyncRun(syncYear);
+    if (interruptedRun?.status === 'running') {
+      setSyncMessage(
+        `A última rodada foi interrompida em ${interruptedRun.current || 0} de ${interruptedRun.total || 0}. Use “Apenas faltantes” para continuar a partir dos resumos que chegaram ao Supabase.`
+      );
+      setSyncProgress({
+        ...DEFAULT_SYNC_PROGRESS,
+        current: Number(interruptedRun.current || 0),
+        total: Number(interruptedRun.total || 0),
+        success: Number(interruptedRun.success || 0),
+        failed: Number(interruptedRun.failed || 0),
+      });
+    }
+  }, [syncYear]);
+
+  useEffect(() => {
+    if (!syncing) return undefined;
+    const warnBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warnBeforeUnload);
+    return () => window.removeEventListener('beforeunload', warnBeforeUnload);
+  }, [syncing]);
 
   const filteredItems = useMemo(() => {
     if (filter === 'todos') return items;
@@ -151,6 +211,7 @@ const AdminCorrectionsPage = () => {
       if (result.ok) {
         setSession(result.session);
         setCredentials({ email: '', password: '' });
+        if (location.state?.from) navigate(location.state.from, { replace: true });
       }
       setMessage('');
     } catch (error) {
@@ -218,21 +279,47 @@ const AdminCorrectionsPage = () => {
       setSyncMessage('Permissão confirmada. Buscando lista oficial de deputados...');
 
       const deputados = await getAllDeputadosList();
-      const existingResult = await fetchDeputyYearSummaries(syncYear).catch(() => ({ data: [] }));
+      const [existingResult, existingPortalResult] = await Promise.all([
+        fetchDeputyYearSummaries(syncYear).catch(() => ({ data: [] })),
+        fetchDeputadoPortalYearSummaries(syncYear).catch(() => ({ data: [] })),
+      ]);
       const savedIds = new Set((existingResult.data || []).map((summary) => String(summary.deputado_id)));
+      const savedPortalIds = new Set(
+        (existingPortalResult.data || []).map((summary) => String(summary.deputado_id ?? summary.deputadoId))
+      );
       const failedIds = new Set(storedFailures.map((failure) => String(failure.id)));
       const targetDeputies = deputados.filter((deputado) => {
         const deputyId = String(deputado.id || deputado?.ultimoStatus?.id || '');
         if (syncMode === 'all') return true;
         if (syncMode === 'failed') return failedIds.has(deputyId);
-        return !savedIds.has(deputyId);
+        return !savedIds.has(deputyId) || !savedPortalIds.has(deputyId);
       });
       const skipped = syncMode === 'missing' ? deputados.length - targetDeputies.length : 0;
 
       setSavedSummaryCount(savedIds.size);
+      setSavedPortalSummaryCount(savedPortalIds.size);
       setSyncProgress({ ...DEFAULT_SYNC_PROGRESS, total: targetDeputies.length, skipped });
+      saveStoredSyncRun(syncYear, {
+        status: 'running',
+        mode: syncMode,
+        current: 0,
+        total: targetDeputies.length,
+        success: 0,
+        failed: 0,
+        failures: [],
+      });
 
       if (targetDeputies.length === 0) {
+        saveStoredSyncRun(syncYear, {
+          status: 'completed',
+          mode: syncMode,
+          current: 0,
+          total: 0,
+          success: 0,
+          failed: 0,
+          skipped,
+          completedAt: new Date().toISOString(),
+        });
         setSyncMessage(
           syncMode === 'failed'
             ? 'Nenhum deputado da lista de falhas foi encontrado na lista oficial atual.'
@@ -258,16 +345,27 @@ const AdminCorrectionsPage = () => {
 
       for (let index = 0; index < targetDeputies.length; index += 1) {
         const deputado = targetDeputies[index];
+        const deputyId = String(deputado.id || deputado?.ultimoStatus?.id || '');
+        const needsExpenseSummary = syncMode !== 'missing' || !savedIds.has(deputyId);
+        const needsPortalSummary = syncMode !== 'missing' || !savedPortalIds.has(deputyId);
+        let expenseReady = !needsExpenseSummary;
+        let portalReady = !needsPortalSummary;
+
         try {
-          const despesas = await getDeputadoDespesas(deputado.id, syncYear);
-          const summary = buildDeputyAnnualExpenseSummary({ deputado, despesas, ano: syncYear });
-          await upsertDeputyYearSummary(summary);
-          if (!portalCacheDisabledReason) {
+          if (needsExpenseSummary) {
+            const despesas = await getDeputadoDespesas(deputado.id, syncYear);
+            const summary = buildDeputyAnnualExpenseSummary({ deputado, despesas, ano: syncYear });
+            await upsertDeputyYearSummary(summary);
+            expenseReady = true;
+          }
+
+          if (needsPortalSummary && !portalCacheDisabledReason) {
             try {
               const portalResult = await upsertDeputadoPortalResumoCache({ deputado, ano: syncYear });
               if (!portalResult?.ok) {
                 throw new Error(portalResult?.reason || 'Cache do portal nao confirmado.');
               }
+              portalReady = true;
               portalSuccess += 1;
             } catch (portalError) {
               console.warn('Resumo do portal nao foi salvo:', deputado.nome, portalError);
@@ -283,10 +381,12 @@ const AdminCorrectionsPage = () => {
 
               if (isSchemaOrPermissionError) {
                 portalCacheDisabledReason = portalError.message || 'Cache do portal indisponivel.';
+              } else {
+                throw portalError;
               }
             }
           }
-          success += 1;
+          if (expenseReady && portalReady) success += 1;
         } catch (error) {
           console.error('Erro ao sincronizar deputado:', deputado.nome, error);
           if (!firstError) firstError = `${deputado.nome}: ${error.message}`;
@@ -301,7 +401,15 @@ const AdminCorrectionsPage = () => {
           failed += 1;
         }
 
-        setSyncProgress({ current: index + 1, total: targetDeputies.length, success, failed, skipped });
+        const progress = { current: index + 1, total: targetDeputies.length, success, failed, skipped };
+        setSyncProgress(progress);
+        saveStoredSyncRun(syncYear, {
+          status: 'running',
+          mode: syncMode,
+          ...progress,
+          currentDeputy: deputado.nome,
+          failures: failures.slice(-20),
+        });
         await new Promise((resolve) => setTimeout(resolve, 150));
       }
 
@@ -313,16 +421,28 @@ const AdminCorrectionsPage = () => {
         setLastFailures([]);
       }
 
-      setSavedSummaryCount((current) => {
-        if (syncMode === 'all') return success;
-        if (typeof current === 'number') return current + success;
-        return null;
-      });
+      const [refreshedExpenses, refreshedPortal] = await Promise.all([
+        fetchDeputyYearSummaries(syncYear).catch(() => ({ data: [] })),
+        fetchDeputadoPortalYearSummaries(syncYear).catch(() => ({ data: [] })),
+      ]);
+      setSavedSummaryCount(refreshedExpenses.data?.length ?? null);
+      setSavedPortalSummaryCount(refreshedPortal.data?.length ?? null);
       setSyncMessage(
-        `Sincronização concluída: ${success} resumos de gastos salvos, ${portalSuccess} resumos do portal salvos, ${failed} falhas${
+        `Sincronização concluída: ${success} deputados ficaram com gastos e resumo do portal completos, ${portalSuccess} resumos do portal atualizados, ${failed} falhas${
           skipped ? `, ${skipped} já estavam salvos e foram pulados` : ''
         }.`
       );
+      saveStoredSyncRun(syncYear, {
+        status: failed ? 'completed_with_errors' : 'completed',
+        mode: syncMode,
+        current: targetDeputies.length,
+        total: targetDeputies.length,
+        success,
+        failed,
+        skipped,
+        failures: failures.slice(-20),
+        completedAt: new Date().toISOString(),
+      });
       if (portalCacheDisabledReason) {
         setSyncMessage((message) =>
           message.replace(/\.$/, ', cache do portal pulado ate atualizar o Supabase.')
@@ -339,6 +459,12 @@ const AdminCorrectionsPage = () => {
       console.error('Erro na sincronização anual:', error);
       setSyncMessage('');
       setSyncError(error.message || 'Não foi possível iniciar a sincronização. Confira Supabase, login admin e APIs oficiais.');
+      saveStoredSyncRun(syncYear, {
+        status: 'failed',
+        mode: syncMode,
+        ...syncProgress,
+        error: error.message || 'Falha desconhecida',
+      });
     } finally {
       setSyncing(false);
     }
@@ -409,6 +535,12 @@ const AdminCorrectionsPage = () => {
           <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800 flex gap-3">
             <ShieldCheck className="w-5 h-5 shrink-0" />
             Ao validar, o dado é publicado na página pública de métricas validadas, sempre com a fonte informada.
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button asChild variant="outline" size="sm"><Link to="/saude"><Activity className="mr-2 h-4 w-4" /> Saúde do sistema</Link></Button>
+            <Button asChild variant="outline" size="sm"><Link to="/auditoria-dados"><Activity className="mr-2 h-4 w-4" /> Auditar KPIs</Link></Button>
+            <Button asChild variant="outline" size="sm"><Link to="/dados-validados"><CheckCircle2 className="mr-2 h-4 w-4" /> Dados validados</Link></Button>
+            <Button asChild variant="outline" size="sm"><Link to="/corrigir"><Send className="mr-2 h-4 w-4" /> Enviar correção</Link></Button>
           </div>
         </div>
       </div>
@@ -484,11 +616,17 @@ const AdminCorrectionsPage = () => {
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="mt-4 grid gap-3 md:grid-cols-4">
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                <p className="text-xs font-bold uppercase text-gray-500">Resumos salvos no ano</p>
+                <p className="text-xs font-bold uppercase text-gray-500">Resumos de gastos</p>
                 <p className="mt-1 text-lg font-bold text-gray-900">
                   {savedSummaryCount === null ? 'Consultando...' : savedSummaryCount}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs font-bold uppercase text-gray-500">Resumos para a nota</p>
+                <p className="mt-1 text-lg font-bold text-gray-900">
+                  {savedPortalSummaryCount === null ? 'Consultando...' : savedPortalSummaryCount}
                 </p>
               </div>
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">

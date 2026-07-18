@@ -71,7 +71,7 @@ const extractArrayFromCamaraFile = (data) => {
   return Object.values(data).find(Array.isArray) || [];
 };
 
-export const fetchAllCamaraPages = async (urlBase, maxPages = 5) => {
+export const fetchAllCamaraPages = async (urlBase, maxPages = 5, requestOptions = {}) => {
   let allData = [];
   let fetchedAt = null;
   let sourceUrl = '';
@@ -81,7 +81,7 @@ export const fetchAllCamaraPages = async (urlBase, maxPages = 5) => {
 
   while (hasMore && page <= maxPages) {
     const separator = urlBase.includes('?') ? '&' : '?';
-    const res = await fetchCamara(`${urlBase}${separator}pagina=${page}&itens=100`);
+    const res = await fetchCamara(`${urlBase}${separator}pagina=${page}&itens=100`, requestOptions);
     fetchedAt = fetchedAt || res.fetchedAt;
     sourceUrl = sourceUrl || res.sourceUrl;
 
@@ -202,6 +202,32 @@ export const getDeputadoInfo = async (id) => {
   return data;
 };
 
+export const getDeputadoHistorico = async (id) => {
+  if (!id) return [];
+  const data = await fetchAllCamaraPages(`/deputados/${encodeURIComponent(id)}/historico`, 5);
+  data.__meta = {
+    ...(data.__meta || {}),
+    sourceUrl: `https://dadosabertos.camara.leg.br/api/v2/deputados/${id}/historico`,
+  };
+  return data;
+};
+
+export const getDeputadoOrgaos = async (id, ano) => {
+  if (!id) return [];
+  const dates = ano
+    ? `?dataInicio=${encodeURIComponent(ano)}-01-01&dataFim=${encodeURIComponent(ano)}-12-31`
+    : '';
+  const data = await fetchAllCamaraPages(
+    `/deputados/${encodeURIComponent(id)}/orgaos${dates}`,
+    5
+  );
+  data.__meta = {
+    ...(data.__meta || {}),
+    sourceUrl: `https://dadosabertos.camara.leg.br/api/v2/deputados/${id}/orgaos${dates}`,
+  };
+  return data;
+};
+
 export const getDeputadoProposicoes = async (id, ano) => {
   if (!id) return [];
   const endpoint = `/proposicoes?idDeputadoAutor=${encodeURIComponent(id)}&ano=${encodeURIComponent(ano)}&ordem=DESC&ordenarPor=id`;
@@ -218,6 +244,9 @@ export const getProposicaoByOfficialNumber = async ({ siglaTipo, numero, ano }) 
   });
   const endpoint = `/proposicoes?${params.toString()}`;
   const raw = await fetchCamara(endpoint);
+  if (raw.error) {
+    throw new Error(raw.error);
+  }
   const summary = raw.data?.dados?.[0] || null;
 
   if (!summary) return null;
@@ -269,9 +298,45 @@ export const getProposicaoAutores = async (id) => {
   return data;
 };
 
+export const getProposicaoTramitacoes = async (id) => {
+  if (!id) return [];
+  const data = await fetchAllCamaraPages(
+    `/proposicoes/${encodeURIComponent(id)}/tramitacoes?ordem=ASC&ordenarPor=dataHora`,
+    12
+  );
+  data.__meta = {
+    ...(data.__meta || {}),
+    sourceUrl: `https://dadosabertos.camara.leg.br/api/v2/proposicoes/${id}/tramitacoes`,
+  };
+  return data;
+};
+
+export const getProposicaoTemas = async (id) => {
+  if (!id) return [];
+  const data = await fetchAllCamaraPages(`/proposicoes/${encodeURIComponent(id)}/temas`, 3);
+  data.__meta = {
+    ...(data.__meta || {}),
+    sourceUrl: `https://dadosabertos.camara.leg.br/api/v2/proposicoes/${id}/temas`,
+  };
+  return data;
+};
+
+export const getProposicaoRelacionadas = async (id) => {
+  if (!id) return [];
+  const data = await fetchAllCamaraPages(`/proposicoes/${encodeURIComponent(id)}/relacionadas`, 5);
+  data.__meta = {
+    ...(data.__meta || {}),
+    sourceUrl: `https://dadosabertos.camara.leg.br/api/v2/proposicoes/${id}/relacionadas`,
+  };
+  return data;
+};
+
 export const getProposicaoVotacoes = async (id) => {
   if (!id) return [];
-  const data = await fetchAllCamaraPages(`/proposicoes/${encodeURIComponent(id)}/votacoes?ordem=DESC&ordenarPor=dataHoraRegistro`, 5);
+  let data = await fetchAllCamaraPages(`/proposicoes/${encodeURIComponent(id)}/votacoes?ordem=DESC&ordenarPor=dataHoraRegistro`, 5);
+  if (data.length === 0 && data.__meta?.error) {
+    data = await fetchAllCamaraPages(`/proposicoes/${encodeURIComponent(id)}/votacoes`, 5);
+  }
   data.__meta = {
     ...(data.__meta || {}),
     sourceUrl: `https://dadosabertos.camara.leg.br/api/v2/proposicoes/${id}/votacoes`,
@@ -279,9 +344,17 @@ export const getProposicaoVotacoes = async (id) => {
   return data;
 };
 
-export const getVotacaoVotos = async (id) => {
+export const getVotacaoVotos = async (id, options = {}) => {
   if (!id) return [];
-  const data = await fetchAllCamaraPages(`/votacoes/${encodeURIComponent(id)}/votos`, 8);
+  const data = await fetchAllCamaraPages(
+    `/votacoes/${encodeURIComponent(id)}/votos`,
+    options.maxPages ?? 8,
+    {
+      retries: options.retries ?? 1,
+      timeoutMs: options.timeoutMs ?? 10000,
+      cacheTtlMs: options.cacheTtlMs,
+    }
+  );
   data.__meta = {
     ...(data.__meta || {}),
     sourceUrl: `https://dadosabertos.camara.leg.br/api/v2/votacoes/${id}/votos`,

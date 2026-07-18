@@ -4,9 +4,14 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, FileText, Info, Loader2, Users, Vote } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import AgendaImpactPanel from '@/components/AgendaImpactPanel';
+import { findVotingRecordsWithIndividualVotes } from '@/lib/agenda-votes';
 import {
   getProposicaoAutores,
   getProposicaoByOfficialNumber,
+  getProposicaoRelacionadas,
+  getProposicaoTemas,
+  getProposicaoTramitacoes,
   getProposicaoVotacoes,
   getVotacaoVotos,
 } from '@/services/camara';
@@ -26,6 +31,16 @@ const agendaVoteStatusLabels = {
   sim: 'Há voto nominal individual em etapas da pauta.',
   parcial: 'Há votação parcial, simbólica ou nem sempre individual.',
   nao: 'Voto nominal individual ainda não confirmado.',
+};
+
+const EMPTY_VOTE_COVERAGE = {
+  totalCandidates: 0,
+  candidateLimit: 30,
+  checked: 0,
+  nominalVotings: 0,
+  withoutIndividualRecords: 0,
+  failed: 0,
+  stoppedAfterSourceFailures: false,
 };
 
 const normalizeVoteGroup = (vote) => {
@@ -123,7 +138,11 @@ const buildParticipantSummary = (votacoes = []) => {
   return Array.from(byDeputy.values()).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 };
 
-const VoteNames = ({ title, votes }) => (
+const VoteNames = ({ title, votes }) => {
+  const [expanded, setExpanded] = useState(false);
+  const visibleVotes = expanded ? votes : votes.slice(0, 12);
+
+  return (
   <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
     <div className="mb-2 flex items-center justify-between gap-3">
       <p className="text-xs font-bold uppercase text-gray-500">{title}</p>
@@ -131,20 +150,31 @@ const VoteNames = ({ title, votes }) => (
     </div>
     {votes.length ? (
       <ul className="space-y-1 text-sm text-gray-700">
-        {votes.slice(0, 12).map((vote, index) => (
+        {visibleVotes.map((vote, index) => (
           <li key={`${vote.deputyId || vote.name}-${index}`} className="truncate">
             {vote.name || 'Nome não informado'} {vote.party ? `(${vote.party}/${vote.state || '-'})` : ''}
           </li>
         ))}
         {votes.length > 12 && (
-          <li className="text-xs font-semibold text-gray-500">+ {votes.length - 12} nomes não exibidos nesta lista curta</li>
+          <li>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-auto px-0 text-xs font-bold text-yellow-800 hover:bg-transparent"
+              onClick={() => setExpanded((value) => !value)}
+            >
+              {expanded ? 'Mostrar lista curta' : <>Mostrar todos os {votes.length} nomes</>}
+            </Button>
+          </li>
         )}
       </ul>
     ) : (
       <p className="text-sm text-gray-400">Nenhum registro nesta categoria.</p>
     )}
   </div>
-);
+  );
+};
 
 const AgendaSummaryPanel = ({ agenda, officialLabel }) => {
   if (!agenda) return null;
@@ -271,11 +301,13 @@ const OfficialPropositionPanel = ({ proposicao, autores, officialLabel }) => (
   </Card>
 );
 
-const ParticipantsPanel = ({ votacoes }) => {
+const ParticipantsPanel = ({ votacoes, coverage = {} }) => {
+  const [showAllParticipants, setShowAllParticipants] = useState(false);
   const participants = buildParticipantSummary(votacoes);
   const totalVoteRecords = votacoes.reduce((sum, voting) => sum + (voting.votes || []).length, 0);
   const parties = new Set(participants.map((item) => item.party).filter(Boolean)).size;
   const states = new Set(participants.map((item) => item.state).filter(Boolean)).size;
+  const visibleParticipants = showAllParticipants ? participants : participants.slice(0, 120);
 
   return (
     <Card id="deputados-participantes">
@@ -304,6 +336,16 @@ const ParticipantsPanel = ({ votacoes }) => {
           </div>
         </div>
 
+        {coverage.checked > 0 && (
+          <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm leading-relaxed text-blue-950">
+            O FISCALIZA verificou {coverage.checked} de {coverage.totalCandidates} votações vinculadas.
+            {' '}{coverage.nominalVotings} votação(ões) retornaram nomes individuais e {coverage.withoutIndividualRecords} não retornaram lista nominal.
+            {coverage.totalCandidates > coverage.candidateLimit && (
+              <> A busca automática foi limitada às {coverage.candidateLimit} candidatas com maior chance de conter voto nominal.</>
+            )}
+          </div>
+        )}
+
         {participants.length ? (
           <div className="mt-4 max-h-96 overflow-auto rounded-lg border border-gray-100">
             <table className="w-full min-w-[680px] text-left text-sm">
@@ -319,7 +361,7 @@ const ParticipantsPanel = ({ votacoes }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {participants.slice(0, 120).map((item) => (
+                {visibleParticipants.map((item) => (
                   <tr key={item.deputyId || `${item.name}-${item.party}-${item.state}`}>
                     <td className="px-4 py-3 font-bold text-gray-950">{item.name}</td>
                     <td className="px-4 py-3 text-gray-600">{item.party || '-'} / {item.state || '-'}</td>
@@ -335,12 +377,22 @@ const ParticipantsPanel = ({ votacoes }) => {
           </div>
         ) : (
           <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-950">
-            Nenhum nome individual foi retornado pelo endpoint oficial de votos nominais para as votações carregadas.
+            {coverage.failed > 0 && coverage.failed === coverage.checked
+              ? 'A fonte oficial falhou ao responder às consultas de votos individuais. O FISCALIZA não transformou essa falha em ausência de voto.'
+              : 'A Câmara não retornou nomes individuais nas votações verificadas. Isso normalmente indica votação simbólica ou procedimental e não significa que os deputados estavam ausentes.'}
           </div>
         )}
 
         {participants.length > 120 && (
-          <p className="mt-3 text-xs text-gray-500">A lista curta mostra os 120 primeiros nomes em ordem alfabética para manter a página leve.</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={() => setShowAllParticipants((value) => !value)}
+          >
+            {showAllParticipants ? 'Mostrar lista curta' : <>Mostrar todos os {participants.length} deputados</>}
+          </Button>
         )}
       </CardContent>
     </Card>
@@ -486,11 +538,19 @@ const AgendaDetailPage = ({ slugOverride = '' }) => {
   const [proposicao, setProposicao] = useState(null);
   const [autores, setAutores] = useState([]);
   const [votacoes, setVotacoes] = useState([]);
+  const [tramitacoes, setTramitacoes] = useState([]);
+  const [temas, setTemas] = useState([]);
+  const [relacionadas, setRelacionadas] = useState([]);
+  const [voteCoverage, setVoteCoverage] = useState(EMPTY_VOTE_COVERAGE);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       setError('');
+      setVoteCoverage(EMPTY_VOTE_COVERAGE);
+      setTramitacoes([]);
+      setTemas([]);
+      setRelacionadas([]);
       try {
         const found = await getProposicaoByOfficialNumber({ siglaTipo: type, numero: number, ano: year });
         setProposicao(found);
@@ -502,20 +562,34 @@ const AgendaDetailPage = ({ slugOverride = '' }) => {
           return;
         }
 
-        const [authors, votingRecords] = await Promise.all([
+        const [authors, votingRecords, procedures, officialThemes, relatedProposals] = await Promise.all([
           getProposicaoAutores(found.id).catch(() => []),
           getProposicaoVotacoes(found.id).catch(() => []),
+          getProposicaoTramitacoes(found.id).catch(() => []),
+          getProposicaoTemas(found.id).catch(() => []),
+          getProposicaoRelacionadas(found.id).catch(() => []),
         ]);
 
-        const votingWithVotes = await Promise.all(
-          votingRecords.slice(0, 5).map(async (voting) => ({
-            ...voting,
-            votes: await getVotacaoVotos(voting.id).catch(() => []),
-          }))
+        const votingWithVotes = await findVotingRecordsWithIndividualVotes(
+          votingRecords,
+          (votingId) => getVotacaoVotos(votingId, { retries: 0, timeoutMs: 8000, maxPages: 6 }),
+          {
+            batchSize: 4,
+            maxCandidates: 30,
+            maxNominalVotings: 8,
+            maxSourceFailures: 3,
+          }
         );
 
         setAutores(authors || []);
+        setTramitacoes(procedures || []);
+        setTemas(officialThemes || []);
+        setRelacionadas(relatedProposals || []);
         setVotacoes(votingWithVotes);
+        setVoteCoverage(votingWithVotes.__meta || EMPTY_VOTE_COVERAGE);
+        if (votingRecords.__meta?.error) {
+          setError('A Câmara identificou a proposição, mas a consulta de votações vinculadas falhou temporariamente.');
+        }
       } catch (err) {
         console.error('Erro ao carregar pauta:', err);
         setError('Não foi possível carregar os dados oficiais desta proposição agora.');
@@ -584,12 +658,21 @@ const AgendaDetailPage = ({ slugOverride = '' }) => {
 
             <OfficialPropositionPanel proposicao={proposicao} autores={autores} officialLabel={officialLabel} />
 
+            <AgendaImpactPanel
+              proposal={proposicao}
+              authors={autores}
+              votings={votacoes}
+              procedures={tramitacoes}
+              themes={temas}
+              related={relacionadas}
+            />
+
             <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm leading-relaxed text-yellow-950">
               <div className="mb-1 flex items-center gap-2 font-bold">
                 <Vote className="h-4 w-4" />
                 Como ler os votos desta página
               </div>
-              Uma proposição pode ter várias votações: texto-base, destaques, emendas, urgência ou requerimentos. Esta tela mostra até 5 votações retornadas pela Câmara e lista nomes apenas quando o endpoint oficial de votos nominais retorna dados.
+              Uma proposição pode ter várias votações: texto-base, destaques, emendas, urgência ou requerimentos. O FISCALIZA verifica progressivamente até 30 votações vinculadas e mostra até 8 que tenham nomes individuais retornados pela Câmara.
             </div>
 
             {votacoes.length ? (
@@ -600,11 +683,13 @@ const AgendaDetailPage = ({ slugOverride = '' }) => {
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center text-gray-500">
-                Nenhuma votação nominal foi encontrada para esta proposição na consulta atual.
+                {voteCoverage.failed > 0
+                  ? 'A consulta oficial dos votos individuais falhou nesta tentativa. Nenhum resultado foi inferido.'
+                  : 'Nenhuma votação com nomes individuais foi encontrada. A pauta pode ter tido votação simbólica, estar sem votação ou não possuir vínculo nominal publicado pela fonte atual.'}
               </div>
             )}
 
-            <ParticipantsPanel votacoes={votacoes} />
+            <ParticipantsPanel votacoes={votacoes} coverage={voteCoverage} />
             <SourceMethodPanel proposicao={proposicao} votacoes={votacoes} officialLabel={officialLabel} type={type} number={number} year={year} />
           </div>
         )}
@@ -614,4 +699,3 @@ const AgendaDetailPage = ({ slugOverride = '' }) => {
 };
 
 export default AgendaDetailPage;
-

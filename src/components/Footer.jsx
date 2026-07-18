@@ -62,9 +62,8 @@ const Footer = () => {
               <li><Link to="/rankings" className="text-sm text-zinc-400 transition-colors hover:text-yellow-200">Rankings Auditáveis</Link></li>
               <li><Link to="/alertas" className="text-sm text-zinc-400 transition-colors hover:text-yellow-200">Pontos de Atenção</Link></li>
               <li><Link to="/pautas" className="text-sm text-zinc-400 transition-colors hover:text-yellow-200">Pautas Nacionais</Link></li>
+              <li><Link to="/fornecedores" className="text-sm text-zinc-400 transition-colors hover:text-yellow-200">Rede de Fornecedores</Link></li>
               <li><Link to="/meu-roteiro" className="text-sm text-zinc-400 transition-colors hover:text-yellow-200">Meu Roteiro Cidadão</Link></li>
-              <li><Link to="/dados-validados" className="text-sm text-zinc-400 transition-colors hover:text-yellow-200">Dados Validados</Link></li>
-              <li><Link to="/corrigir" className="text-sm text-zinc-400 transition-colors hover:text-yellow-200">Enviar Correção</Link></li>
               <li><Link to="/apoie" className="text-sm font-bold text-yellow-300 transition-colors hover:text-yellow-100">Apoie o FISCALIZA</Link></li>
             </ul>
           </div>
@@ -74,6 +73,7 @@ const Footer = () => {
             <ul className="space-y-3">
               <li><Link to="/sobre" className="text-sm text-zinc-400 transition-colors hover:text-yellow-200">Sobre o Projeto</Link></li>
               <li><Link to="/roadmap" className="text-sm text-zinc-400 transition-colors hover:text-yellow-200">Roteiro de Expansão</Link></li>
+              <li><Link to="/metodologia" className="text-sm text-zinc-400 transition-colors hover:text-yellow-200">Metodologia Pública</Link></li>
               <li><Link to="/apoie" className="text-sm text-zinc-400 transition-colors hover:text-yellow-200">Custos e Apoio</Link></li>
               <li><a href="https://dadosabertos.camara.leg.br" target="_blank" rel="noopener noreferrer" className="text-sm text-zinc-400 transition-colors hover:text-yellow-200">API Câmara dos Deputados</a></li>
               <li><a href="https://legis.senado.leg.br/dadosabertos" target="_blank" rel="noopener noreferrer" className="text-sm text-zinc-400 transition-colors hover:text-yellow-200">API Senado Federal</a></li>

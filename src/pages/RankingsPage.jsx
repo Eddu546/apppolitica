@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { polishText } from '@/lib/display-text';
 import { formatCurrency, formatNumber } from '@/lib/legislative-logic';
+import { addMandateScoresToSummaries } from '@/lib/mandate-score';
 import { DEFAULT_LEGISLATIVE_YEAR, LEGISLATIVE_YEARS } from '@/lib/legislative-years';
 import {
   decorateSummariesWithSensitiveCategory,
@@ -16,8 +17,10 @@ import {
   isAnnualSummaryDatabaseConfigured,
 } from '@/services/annualSummaries';
 import { SENSITIVE_CEAP_CATEGORIES } from '@/services/benefits';
+import { fetchDeputadoPortalYearSummaries } from '@/services/camaraPortal';
 
 const rankingCategoryOptions = [
+  { id: 'score', label: 'Nota geral do mandato' },
   { id: 'total', label: 'Total geral de gastos' },
   ...SENSITIVE_CEAP_CATEGORIES.map((category) => ({
     id: category.id,
@@ -93,7 +96,7 @@ const RankingCoveragePanel = ({ sourceMode, sourceMeta, items, year, showCoverag
               {showCoverage ? 'Ocultar cobertura' : 'Ver cobertura da base'}
             </Button>
             <Button asChild className="bg-yellow-400 text-black hover:bg-yellow-300">
-              <Link to="/saude">Abrir saúde</Link>
+              <Link to="/metodologia">Como funciona</Link>
             </Button>
           </div>
         </div>
@@ -135,6 +138,14 @@ const RankingCoveragePanel = ({ sourceMode, sourceMeta, items, year, showCoverag
 };
 
 const sortOptions = {
+  score_total: {
+    label: 'Maior nota geral',
+    compare: (a, b) => Number(b.mandateScore?.value || -1) - Number(a.mandateScore?.value || -1),
+  },
+  score_total_asc: {
+    label: 'Menor nota geral',
+    compare: (a, b) => Number(a.mandateScore?.value ?? 99) - Number(b.mandateScore?.value ?? 99),
+  },
   total_gasto: {
     label: 'Maior gasto total',
     compare: (a, b) => Number(b.total_gasto) - Number(a.total_gasto),
@@ -210,8 +221,8 @@ const buildLowSpendingContext = ({ item, listAverage, categoryMode }) => {
   };
 };
 
-const RankingRow = ({ item, position, categoryLabel, categoryMode, listAverage }) => {
-  const lowSpendingContext = buildLowSpendingContext({ item, listAverage, categoryMode });
+const RankingRow = ({ item, position, categoryLabel, categoryMode, scoreMode, listAverage, year }) => {
+  const lowSpendingContext = buildLowSpendingContext({ item, listAverage, categoryMode: categoryMode || scoreMode });
 
   return (
     <Card>
@@ -231,7 +242,7 @@ const RankingRow = ({ item, position, categoryLabel, categoryMode, listAverage }
               }}
             />
             <div className="min-w-0">
-              <Link to={`/politico/${item.deputado_id}`} className="text-lg font-extrabold text-gray-900 hover:text-blue-600">
+              <Link to={`/politico/${item.deputado_id}?ano=${year}`} className="text-lg font-extrabold text-gray-900 hover:text-blue-600">
                 {item.nome}
               </Link>
               <div className="mt-1 flex flex-wrap gap-2">
@@ -250,20 +261,31 @@ const RankingRow = ({ item, position, categoryLabel, categoryMode, listAverage }
             </div>
           </div>
           <div>
-            <p className="text-xs font-bold uppercase text-gray-400">{categoryMode ? categoryLabel : 'Total gasto'}</p>
-            <p className="font-black text-gray-900">{formatCurrency(categoryMode ? item.ranking_value : item.total_gasto)}</p>
-            {categoryMode && (
+            <p className="text-xs font-bold uppercase text-gray-400">{scoreMode ? 'Nota geral' : categoryMode ? categoryLabel : 'Total gasto'}</p>
+            <p className="font-black text-gray-900">
+              {scoreMode
+                ? item.mandateScore?.value === null ? 'Sem nota' : `${Number(item.mandateScore.value).toLocaleString('pt-BR', { minimumFractionDigits: 1 })} / 10`
+                : formatCurrency(categoryMode ? item.ranking_value : item.total_gasto)}
+            </p>
+            {scoreMode && <p className="mt-1 text-xs text-gray-500">Cobertura: {item.mandateScore?.coverage || 0}%</p>}
+            {categoryMode && !scoreMode && (
               <p className="mt-1 text-xs text-gray-500">{formatPercent(item.ranking_share)} do total anual</p>
             )}
           </div>
           <div>
-            <p className="text-xs font-bold uppercase text-gray-400">{categoryMode ? 'Total anual' : 'Média mensal'}</p>
-            <p className="font-black text-gray-900">{formatCurrency(categoryMode ? item.total_gasto : item.media_mensal)}</p>
+            <p className="text-xs font-bold uppercase text-gray-400">{scoreMode ? 'Melhor componente' : categoryMode ? 'Total anual' : 'Média mensal'}</p>
+            <p className="font-black text-gray-900">
+              {scoreMode
+                ? item.mandateScore?.components?.filter((component) => component.score !== null).sort((a, b) => b.score - a.score)[0]?.label || 'Indisponível'
+                : formatCurrency(categoryMode ? item.total_gasto : item.media_mensal)}
+            </p>
           </div>
           <div>
-            <p className="text-xs font-bold uppercase text-gray-400">{categoryMode ? 'Registros no recorte' : 'Despesas'}</p>
+            <p className="text-xs font-bold uppercase text-gray-400">{scoreMode ? 'Situação' : categoryMode ? 'Registros no recorte' : 'Despesas'}</p>
             <p className="font-black text-gray-900">
-              {categoryMode && item.ranking_count === null
+              {scoreMode
+                ? item.mandateScore?.status === 'available' ? 'Nota completa' : item.mandateScore?.status === 'partial' ? 'Nota parcial' : 'Sem nota'
+                : categoryMode && item.ranking_count === null
                 ? 'Não informado'
                 : formatNumber(categoryMode ? item.ranking_count : item.quantidade_despesas)}
             </p>
@@ -296,6 +318,7 @@ const RankingRow = ({ item, position, categoryLabel, categoryMode, listAverage }
 const RankingsPage = () => {
   const [year, setYear] = useState(DEFAULT_LEGISLATIVE_YEAR);
   const [items, setItems] = useState([]);
+  const [portalItems, setPortalItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [search, setSearch] = useState('');
@@ -313,6 +336,7 @@ const RankingsPage = () => {
       setLoading(true);
       setMessage('');
       setSourceMode('supabase');
+      setPortalItems([]);
       setSourceMeta({ totalAvailable: EXPECTED_CAMARA_SEATS, source: 'supabase' });
 
       const loadLiveFallback = async (reason) => {
@@ -338,6 +362,8 @@ const RankingsPage = () => {
         const result = await fetchDeputyYearSummaries(year);
         if (result.ok && result.data?.length) {
           setItems(result.data || []);
+          const portalResult = await fetchDeputadoPortalYearSummaries(year).catch(() => ({ ok: false, data: [] }));
+          setPortalItems(portalResult.data || []);
           setSourceMeta({
             totalAvailable: EXPECTED_CAMARA_SEATS,
             source: 'supabase',
@@ -372,25 +398,43 @@ const RankingsPage = () => {
   const states = useMemo(() => [...new Set(items.map((item) => item.uf).filter(Boolean))].sort(), [items]);
   const parties = useMemo(() => [...new Set(items.map((item) => item.partido).filter(Boolean))].sort(), [items]);
   const selectedCategory = rankingCategoryOptions.find((option) => option.id === categoryFilter) || rankingCategoryOptions[0];
-  const categoryMode = categoryFilter !== 'total';
+  const scoreMode = categoryFilter === 'score';
+  const categoryMode = categoryFilter !== 'total' && !scoreMode;
+  const scoredItems = useMemo(
+    () => addMandateScoresToSummaries(items, portalItems),
+    [items, portalItems]
+  );
+  const scoreCoverageCount = useMemo(
+    () => scoredItems.filter((item) => item.mandateScore?.value !== null).length,
+    [scoredItems]
+  );
   const rankedItems = useMemo(
-    () => decorateSummariesWithSensitiveCategory(items, categoryFilter),
-    [categoryFilter, items]
+    () => categoryMode
+      ? decorateSummariesWithSensitiveCategory(scoredItems, categoryFilter)
+      : scoredItems,
+    [categoryFilter, categoryMode, scoredItems]
+  );
+
+  const globallyRankedItems = useMemo(
+    () => [...rankedItems]
+      .filter((item) => !categoryMode || Number(item.ranking_value) > 0)
+      .filter((item) => !scoreMode || item.mandateScore?.value !== null)
+      .sort(sortOptions[sortBy]?.compare || sortOptions.total_gasto.compare)
+      .map((item, index) => ({ ...item, globalPosition: index + 1 })),
+    [categoryMode, rankedItems, scoreMode, sortBy]
   );
 
   const filteredItems = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
-    return [...rankedItems]
+    return globallyRankedItems
       .filter((item) => !normalizedSearch || String(item.nome).toLowerCase().includes(normalizedSearch))
       .filter((item) => !stateFilter || item.uf === stateFilter)
-      .filter((item) => !partyFilter || item.partido === partyFilter)
-      .filter((item) => !categoryMode || Number(item.ranking_value) > 0)
-      .sort(sortOptions[sortBy]?.compare || sortOptions.total_gasto.compare);
-  }, [categoryMode, partyFilter, rankedItems, search, sortBy, stateFilter]);
+      .filter((item) => !partyFilter || item.partido === partyFilter);
+  }, [globallyRankedItems, partyFilter, search, stateFilter]);
 
   const totalRecorte = useMemo(
-    () => filteredItems.reduce((acc, item) => acc + Number(categoryMode ? item.ranking_value : item.total_gasto || 0), 0),
-    [categoryMode, filteredItems]
+    () => filteredItems.reduce((acc, item) => acc + Number(scoreMode ? item.mandateScore?.value : categoryMode ? item.ranking_value : item.total_gasto || 0), 0),
+    [categoryMode, filteredItems, scoreMode]
   );
   const mediaRecorte = filteredItems.length ? totalRecorte / filteredItems.length : 0;
   const latestFetch = useMemo(() => {
@@ -419,7 +463,7 @@ const RankingsPage = () => {
             <div>
               <h1 className="text-3xl font-extrabold text-gray-900">Rankings auditáveis</h1>
               <p className="mt-2 max-w-3xl text-gray-600">
-                Compare gastos parlamentares a partir dos resumos anuais sincronizados no Supabase. Todos os valores vêm da API oficial da Câmara e são calculados pelo FISCALIZA.
+                Compare gastos e a nota geral calculada pelo FISCALIZA a partir dos resumos anuais oficiais. A nota mostra cobertura, componentes e limitações.
               </p>
             </div>
           </div>
@@ -468,6 +512,17 @@ const RankingsPage = () => {
           </CardContent>
         </Card>
 
+        {scoreMode && !loading && (
+          <div className={`mb-6 rounded-lg border p-4 text-sm ${scoreCoverageCount >= RELIABLE_RANKING_THRESHOLD ? 'border-green-200 bg-green-50 text-green-900' : 'border-yellow-300 bg-yellow-50 text-yellow-900'}`}>
+            <p className="font-bold">
+              Cobertura da nota: {formatNumber(scoreCoverageCount)} de {formatNumber(items.length)} deputados da base
+            </p>
+            <p className="mt-1">
+              A nota só aparece quando há pelo menos 50% dos componentes calculáveis. Para ampliar este ranking, o administrador precisa completar os resumos do Portal da Câmara no ano selecionado.
+            </p>
+          </div>
+        )}
+
         <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-4">
           <Card>
             <CardContent className="p-4">
@@ -483,8 +538,10 @@ const RankingsPage = () => {
           </Card>
           <Card>
             <CardContent className="p-4">
-              <p className="text-xs font-bold uppercase text-gray-500">{categoryMode ? 'Total do recorte' : 'Média da lista'}</p>
-              <p className="text-2xl font-black text-gray-900">{formatCurrency(categoryMode ? totalRecorte : mediaRecorte)}</p>
+              <p className="text-xs font-bold uppercase text-gray-500">{scoreMode ? 'Nota média da lista' : categoryMode ? 'Total do recorte' : 'Média da lista'}</p>
+              <p className="text-2xl font-black text-gray-900">
+                {scoreMode ? `${mediaRecorte.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / 10` : formatCurrency(categoryMode ? totalRecorte : mediaRecorte)}
+              </p>
             </CardContent>
           </Card>
           <Card>
@@ -504,10 +561,14 @@ const RankingsPage = () => {
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <input
                   value={search}
+                  list="ranking-search-suggestions"
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Buscar deputado..."
                   className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-blue-600"
                 />
+                <datalist id="ranking-search-suggestions">
+                  {globallyRankedItems.map((item) => <option key={item.deputado_id || item.id} value={item.nome} />)}
+                </datalist>
               </div>
               <select value={stateFilter} onChange={(event) => setStateFilter(event.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
                 <option value="">Todos os estados</option>
@@ -522,7 +583,7 @@ const RankingsPage = () => {
                 onChange={(event) => {
                   const nextCategory = event.target.value;
                   setCategoryFilter(nextCategory);
-                  setSortBy(nextCategory === 'total' ? 'total_gasto' : 'recorte_valor');
+                  setSortBy(nextCategory === 'score' ? 'score_total' : nextCategory === 'total' ? 'total_gasto' : 'recorte_valor');
                 }}
                 className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
               >
@@ -558,14 +619,16 @@ const RankingsPage = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredItems.slice(0, 150).map((item, index) => (
+            {filteredItems.slice(0, 150).map((item) => (
               <RankingRow
                 key={`${item.ano}-${item.deputado_id}`}
                 item={item}
-                position={index + 1}
+                position={item.globalPosition}
                 categoryLabel={selectedCategory.label}
                 categoryMode={categoryMode}
+                scoreMode={scoreMode}
                 listAverage={mediaRecorte}
+                year={year}
               />
             ))}
 
